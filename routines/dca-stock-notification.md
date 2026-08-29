@@ -53,28 +53,33 @@ is a different thing — the Friday read of aging and capital — not a replacem
 ## Deploying
 
 The routine exists (`trig_01QUuaBJQPr3XSXUDEbDfqx3`, first fire Fri 4 Sep 2026
-10:04 UTC). Two things still need attaching **by hand in the web UI**, because the
-trigger API available to an assistant session cannot set either:
+10:04 UTC), but it was created through the trigger API, which attached **neither the
+Gmail connector nor the repository**. Both must be added by hand once. Until then the
+run has no `mcp__Gmail__*` tools and no checkout, so STEP B of the loader applies and
+it ends quietly — the intended failure mode, not a working schedule.
 
-1. **Gmail connector.** The trigger was created with no MCP connectors, so the
-   sessions it fires have no `mcp__Gmail__*` tools — it cannot read the source
-   notification or send the report. Without this it no-ops every week (safely, but
-   uselessly). Attach Gmail at <https://claude.ai/code/routines>.
-2. **Repository source.** The trigger has no `sources` entry, so the checkout its
-   instructions live in is not cloned. Add
-   `https://github.com/indobladerz/DCA-Stock-Report-Automation` as a source in the
-   same screen.
+### Finish the setup at <https://claude.ai/code/routines>
 
-Until both are attached, STEP B of the loader applies and the run ends quietly rather
-than improvising — which is the intended failure mode, not a working schedule.
+1. Open the routine **DCA Weekly Stock Dashboard** and click the **pencil icon** to
+   open **Edit routine**.
+2. Under **Select repositories**, add
+   `indobladerz/DCA-Stock-Report-Automation`. Each run clones it from the default
+   branch, so the work must be on `main` — or the loader prompt must name the branch,
+   which it currently does.
+3. Under **Connectors** at the bottom of the form, make sure **Gmail** is included.
+   Remove every other connector: this routine reads one mailbox and sends two emails,
+   and Claude can use every tool from an included connector, writes included, without
+   asking during a run.
+4. Save. Use **Run now** on the detail page to test without waiting for Friday.
 
-For reference, the two financial-report routines in the sibling repo carry exactly
-this configuration (Gmail + Drive connectors, repo as a source); copying their setup
-is the quickest path.
+Connectors and repositories can also be changed later from the same edit form, or with
+`/schedule update` from a **local** terminal. `/schedule` is unavailable inside a
+Claude Code web session, so it cannot be driven from a session like the one that
+created this routine — which is exactly why the connector had to be attached by hand.
 
-Because the loader is only ~1.5 KB and the real instructions live in this repo, a
-change to the report afterwards is deployed by `git push` alone — the routine config
-never needs to be touched again.
+For reference, the two financial-report routines in the sibling repo already carry
+this configuration; they were created from a surface that passes connectors through,
+which is why they work and this one does not yet.
 
 ## Running it by hand
 
