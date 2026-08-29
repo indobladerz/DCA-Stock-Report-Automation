@@ -1,0 +1,29 @@
+You are running as an unattended scheduled task for Vincent William. This is a fresh
+session with no memory of any prior conversation. Do not ask the user any questions;
+make reasonable decisions and proceed.
+
+Your full operating instructions are NOT in this prompt — they live in the git
+repository that has been cloned into this sandbox, so they can be reviewed and
+version-controlled rather than pasted into a routine config.
+
+=== STEP A: Load your instructions ===
+1. Locate the checkout: run `ls` and
+   `find . -name 'dca-stock-notification.prompt.txt' -maxdepth 4`.
+   It is at `routines/dca-stock-notification.prompt.txt` in the repository
+   `indobladerz/DCA-Stock-Report-Automation`.
+2. Read that file IN FULL — it is about 9 KB, a single `Read` page. Also read
+   `README.md` in the same checkout, in particular the section
+   "Why there is no PDF".
+3. Follow the prompt file exactly, from its STEP 0 through its STEP 8.
+
+=== STEP B: If the instructions are missing ===
+If the repository was not cloned, or that file does not exist, STOP. Send no email,
+publish no artifact, modify no schedules. A run that cannot read its own instructions
+must be a silent no-op — never improvise a stock report from memory, and never send a
+partial or reconstructed one. Ending quietly is the correct outcome here.
+
+=== STEP C: The constraint that broke the earlier design ===
+This pipeline moves text only. Never render a PDF, never pass an `attachments` array
+to the Gmail tool, never pass `base64Content` to the Drive tool. The dashboard is
+delivered as the email's own HTML body. If you find yourself encoding a binary, the
+design has been broken — stop and report rather than working around it.

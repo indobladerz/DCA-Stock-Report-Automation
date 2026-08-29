@@ -1,0 +1,176 @@
+DCA DAILY STOCK NOTIFICATION DASHBOARD — OPERATING INSTRUCTIONS
+
+You are running as an unattended scheduled task for Vincent William (PT. Duta Cendana
+Adimandiri, Suzuki dealer). Fresh session, no memory of prior runs. Ask no questions;
+make reasonable decisions and proceed. Everything you need is in this checkout.
+
+--------------------------------------------------------------------------------
+THE ONE RULE THAT MATTERS MOST
+--------------------------------------------------------------------------------
+This pipeline moves TEXT ONLY. It must never produce, encode, attach or emit a
+binary payload.
+
+  - Do NOT render a PDF.
+  - Do NOT call mcp__Gmail__send_message with an `attachments` array.
+  - Do NOT call mcp__Google_Drive__create_file with `base64Content`.
+  - Do NOT emit any long verbatim high-entropy string as a tool-call argument.
+
+An earlier design attached the stock report as a PDF. The stock table runs to ~176
+rows across 21 columns; the resulting PDF base64 is far past the length at which a
+single verbatim emission stops completing, so the run hung with the email unsent —
+every time, not intermittently. Read `.claude/skills/base64-binary-payloads/SKILL.md`
+and the "Why there is no PDF" section of README.md before changing anything about
+delivery. The dashboard travels as the email's own HTML body, which is an ordinary
+UTF-8 string parameter with no encoding step and no size cliff.
+
+If you ever find yourself reaching for base64 here, the design has been broken.
+Stop and report instead.
+
+--------------------------------------------------------------------------------
+STEP 0 — Preflight
+--------------------------------------------------------------------------------
+Run `ls` and locate this repository's checkout (it contains src/, routines/, tests/).
+Work from its root. Confirm `python3 --version` responds. No pip install is needed —
+the pipeline is pure standard library, deliberately.
+
+Run the test suite first:  python3 tests/test_parse_stock.py
+It must print "PASS". If it fails, STOP: send nothing, and report the failure. A
+parser that cannot reproduce its known-good fixture must not be pointed at live data.
+
+--------------------------------------------------------------------------------
+STEP 1 — Fetch today's source email
+--------------------------------------------------------------------------------
+The upstream system ("ArUnit") emails a stock notification every morning at about
+09:00 WIB / 02:00 UTC. Find the most recent one:
+
+  mcp__Gmail__search_threads with
+    query: subject:"Notifikasi Stock" newer_than:2d
+    pageSize: 10
+
+Senders seen historically: stockdcasystem@gmail.com and ar.dutacendana@gmail.com.
+Accept either; do not filter on sender, filter on the subject and take the newest.
+
+Then read it in full:
+
+  mcp__Gmail__get_thread with messageFormat: PLAIN_TEXT
+
+PLAIN_TEXT matters: it renders the HTML table as a markdown pipe table, which is
+exactly what the parser expects. Do not request FULL_CONTENT — the HTML body is
+~480 KB and will flood your context for no benefit.
+
+--------------------------------------------------------------------------------
+STEP 2 — Guard: is there anything to report?
+--------------------------------------------------------------------------------
+If no "Notifikasi Stock" email exists dated today (WIB), this run is a SILENT NO-OP.
+Send no email, publish nothing, report "no source email for today" and end. The
+upstream system occasionally skips a day; that is not an incident and must not
+produce a report built from yesterday's numbers.
+
+Take the email's own date as the report date. Never substitute today's date for it.
+
+--------------------------------------------------------------------------------
+STEP 3 — Parse
+--------------------------------------------------------------------------------
+Write the `plaintextBody` you received to a working file, then:
+
+  mkdir -p out
+  python3 src/parse_stock.py out/source.md YYYY-MM-DD > out/metrics.json
+
+where YYYY-MM-DD is the source email's date. The parser raises on a missing or empty
+table rather than inventing numbers — if it raises, STOP and report.
+
+--------------------------------------------------------------------------------
+STEP 4 — Sanity gates (do not skip)
+--------------------------------------------------------------------------------
+Read out/metrics.json and check all four before going further:
+
+  1. rows_in_table is at least 50. A sudden collapse to a handful of rows means the
+     upstream format changed, not that the dealer sold its inventory overnight.
+  2. Every entry in `reconciliation` has "match": true. These compare the source
+     email's own four headline counters against a recount of its own table. A
+     mismatch means either the upstream summary is wrong or the parse is wrong —
+     either way a human should look before it goes out.
+  3. counts.unsold is greater than 0.
+  4. value.unsold_hpp is greater than 0.
+
+If any gate fails: publish nothing, send nothing to the distribution list. Email
+ONLY vwilliam@dutacendana.com with the subject prefixed "[PERIKSA]", stating exactly
+which gate failed and the figures involved. Then end.
+
+--------------------------------------------------------------------------------
+STEP 5 — Render
+--------------------------------------------------------------------------------
+  python3 src/render_dashboard.py out/metrics.json <ARTIFACT_URL_IF_KNOWN>
+
+This writes out/artifact.html (the dashboard) and out/email.html (the email body).
+Neither is binary. Do not hand-edit either file; change the renderer instead so the
+next run inherits the fix.
+
+--------------------------------------------------------------------------------
+STEP 6 — Publish the dashboard Artifact
+--------------------------------------------------------------------------------
+Publish out/artifact.html with the Artifact tool.
+
+  - Same artifact every day: pass the SAME url each run so it updates in place and
+    keeps one stable link. The current artifact URL is recorded in
+    routines/dca-stock-notification.md — read it from there, and if it is absent
+    (first run), publish fresh and write the returned URL back into that file, commit
+    and push.
+  - Before publishing to an existing artifact you must first read it
+    (action: "read" with that url), or the publish is refused.
+  - favicon: omit on updates. It stays the car icon for the life of the artifact.
+  - label: the report date, e.g. "29-agustus-2026".
+
+Then re-run STEP 5 passing the artifact URL, so the email body carries a working
+link to the dashboard.
+
+--------------------------------------------------------------------------------
+STEP 7 — Send the email
+--------------------------------------------------------------------------------
+Duplicate guard first. Search sent mail for today's report:
+
+  mcp__Gmail__search_threads with query: in:sent subject:"Stok Harian DCA" newer_than:1d
+
+If a send for this report date already went out, do NOT send again — end and report
+"already delivered". The check is per recipient set: if a previous run sent to some
+recipients and failed on others, complete only the missing ones.
+
+Send with mcp__Gmail__send_message:
+
+  to:        (see the DISTRIBUTION LIST section in routines/dca-stock-notification.md)
+  subject:   Stok Harian DCA — <tanggal, e.g. 29 Agustus 2026>
+  htmlBody:  the full contents of out/email.html
+  body:      a short plain-text fallback: the headline figures in one paragraph
+  attachments: OMIT THIS FIELD ENTIRELY.
+
+The htmlBody is passed as an ordinary string. It is roughly 30 KB of readable markup —
+low entropy, no encoding, and it has no reliability cliff. This is the whole point of
+the design.
+
+If the send fails, retry once. If it fails again, report the failure plainly. Do not
+fall back to attaching anything.
+
+--------------------------------------------------------------------------------
+STEP 8 — Report
+--------------------------------------------------------------------------------
+Summarise in a few lines: report date, rows parsed, unsold count, HPP tied up, count
+over 90 days, any data-quality findings, the artifact URL, and who the email went to.
+Do not commit anything except an artifact URL first written in STEP 6.
+
+--------------------------------------------------------------------------------
+WHAT THE DASHBOARD SAYS, AND WHY
+--------------------------------------------------------------------------------
+The source email already lists every unit. Restating that list adds nothing. What it
+does NOT do, and what this report exists to add:
+
+  - Aging. Days since DO, bucketed, for unsold units only. Capital sitting in metal
+    older than 90 days is the single number a dealer principal acts on.
+  - Value. HPP rolled up per bucket, per branch, per model — so "8 old units" becomes
+    "Rp 1,48 M tied up".
+  - Reconciliation. The source's "Total Stock" counter is FREE + MATCHING, not the
+    row count. Rows that are SOLD or carry no status at all are in the same table and
+    are counted by no headline figure. The dashboard states this explicitly rather
+    than letting the reader assume.
+  - Data quality. Duplicate DO numbers, blank chassis/engine/location, placeholder
+    rows priced at Rp 0 or Rp 123. These are upstream defects worth someone's
+    attention, and they are invisible in a 176-row wall of text.
