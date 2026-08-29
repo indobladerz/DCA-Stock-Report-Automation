@@ -22,12 +22,20 @@ cost figures are present.
 
 | | Email A — with HPP | Email B — no HPP |
 |---|---|---|
-| **To** | `vwilliam@dutacendana.com`<br>`stock@suzukidutacendana.com` | `it@dutacendana.com`<br>`om@suzukidutacendana.com`<br>`fineke99@gmail.com`<br>`m.rizky@smkwikrama.sch.id` |
+| **To** | `vwilliam@dutacendana.com`<br>`stock@suzukidutacendana.com`<br>`fineke99@gmail.com` | `it@dutacendana.com`<br>`om@suzukidutacendana.com`<br>`all.bm@suzukidutacendana.com`<br>`m.rizky@smkwikrama.sch.id` |
 | **Body** | `out/email-a.html` | `out/email-b.html` |
 | **Cost figures** | stock value, HPP per bucket / branch / model, HPP per aging unit | none anywhere |
 
-Between them these are the six recipients of the upstream ArUnit notification.
-No one appears on both, and the two lists are never CC'd across.
+These cover the six recipients of the upstream ArUnit notification, plus
+`all.bm@suzukidutacendana.com` on list B. No one appears on both, and the two lists
+are never CC'd across.
+
+`all.bm@` is a **group alias** — it expands to the branch managers, and its membership
+lives in Google Workspace rather than here. That is fine on list B, which carries no
+cost data. It would not be fine on list A: never put a group alias on the with-HPP
+list without knowing every address inside it, because a single B-audience member
+hidden in an A alias leaks the cost figures. If someone on list A is also inside
+`all.bm@`, they simply receive both emails, which is harmless — A is the fuller report.
 
 **B is not A with the numbers blanked out.** The renderer removes the HPP columns
 entirely and replaces the stock-value headline tile with the sold count, so B reads as
@@ -52,34 +60,32 @@ is a different thing — the Friday read of aging and capital — not a replacem
 
 ## Deploying
 
-The routine exists (`trig_01QUuaBJQPr3XSXUDEbDfqx3`, first fire Fri 4 Sep 2026
-10:04 UTC), but it was created through the trigger API, which attached **neither the
-Gmail connector nor the repository**. Both must be added by hand once. Until then the
-run has no `mcp__Gmail__*` tools and no checkout, so STEP B of the loader applies and
-it ends quietly — the intended failure mode, not a working schedule.
+The routine is live: `trig_01QUuaBJQPr3XSXUDEbDfqx3`, first fire **Fri 4 Sep 2026
+10:05 UTC**. Verified attached:
 
-### Finish the setup at <https://claude.ai/code/routines>
+- **Gmail connector** — and only Gmail. The other four connectors on the account
+  (Drive, Calendar, Canva, Claude Code Remote) are deliberately absent: an included
+  connector grants unprompted access to all of its tools, writes included, and this
+  routine reads one mailbox and sends two emails.
+- **Repository** `indobladerz/DCA-Stock-Report-Automation` as a source.
 
-1. Open the routine **DCA Weekly Stock Dashboard** and click the **pencil icon** to
-   open **Edit routine**.
-2. Under **Select repositories**, add
-   `indobladerz/DCA-Stock-Report-Automation`. Each run clones it from the default
-   branch, so the work must be on `main` — or the loader prompt must name the branch,
-   which it currently does.
-3. Under **Connectors** at the bottom of the form, make sure **Gmail** is included.
-   Remove every other connector: this routine reads one mailbox and sends two emails,
-   and Claude can use every tool from an included connector, writes included, without
-   asking during a run.
-4. Save. Use **Run now** on the detail page to test without waiting for Friday.
+### One caveat: the default branch
 
-Connectors and repositories can also be changed later from the same edit form, or with
-`/schedule update` from a **local** terminal. `/schedule` is unavailable inside a
-Claude Code web session, so it cannot be driven from a session like the one that
-created this routine — which is exactly why the connector had to be attached by hand.
+A routine clones the repository's **default branch**. While this work sits on
+`claude/dca-stock-notification-dashboard-2kqr8m` and not on `main`, the loader has to
+check the branch out itself — STEP A.2 of [`../loaders/dca-stock-loader.txt`](../loaders/dca-stock-loader.txt)
+does exactly that, and the live routine prompt carries the same text.
 
-For reference, the two financial-report routines in the sibling repo already carry
-this configuration; they were created from a surface that passes connectors through,
-which is why they work and this one does not yet.
+That is a working arrangement, not a good end state. **Merging the branch to `main`
+removes the step entirely** and makes the checkout the routine already has correct on
+its own. Until then, renaming or deleting the branch breaks the routine silently.
+
+### Testing without waiting for Friday
+
+Open the routine at <https://claude.ai/code/routines> and click **Run now** on its
+detail page. Each run appears as a normal session, so the transcript shows exactly
+what it did. Note that a green run status only means the session exited without an
+infrastructure error — open the run to confirm both emails actually went out.
 
 ## Running it by hand
 

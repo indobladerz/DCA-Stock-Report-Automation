@@ -159,15 +159,16 @@ TWO SENDS GO OUT, sharing one subject. They differ only in whether cost figures
 are present. Send both with mcp__Gmail__send_message:
 
   --- Email A: with HPP ---
-  to:        vwilliam@dutacendana.com, stock@suzukidutacendana.com
+  to:        vwilliam@dutacendana.com, stock@suzukidutacendana.com,
+             fineke99@gmail.com
   subject:   Stok Mingguan DCA — per <tanggal, e.g. 29 Agustus 2026>
   htmlBody:  the full contents of out/email-a.html
   body:      short plain-text fallback; may include the stock value
   attachments: OMIT THIS FIELD ENTIRELY.
 
   --- Email B: without HPP ---
-  to:        it@dutacendana.com, om@suzukidutacendana.com, fineke99@gmail.com,
-             m.rizky@smkwikrama.sch.id
+  to:        it@dutacendana.com, om@suzukidutacendana.com,
+             all.bm@suzukidutacendana.com, m.rizky@smkwikrama.sch.id
   subject:   the SAME subject as A
   htmlBody:  the full contents of out/email-b.html
   body:      short plain-text fallback with NO rupiah figure in it
@@ -179,6 +180,13 @@ to B's recipients is the one failure here that cannot be taken back. If the chec
 finds anything, send A only and report the problem.
 
 Never put a recipient on both emails, and never CC across the two lists.
+
+`all.bm@suzukidutacendana.com` is a group alias that expands to the branch managers.
+Treat it as list B and nothing else. If the alias is ever changed to include someone
+who is also on list A, that person receives both emails — harmless, since A is the
+fuller report. The failure that matters runs the other way: never add a group alias to
+list A without knowing every address inside it, because one B-audience member hidden
+in an A alias leaks the cost figures to them.
 
 The htmlBody is passed as an ordinary string. It is roughly 30 KB of readable markup —
 low entropy, no encoding, and it has no reliability cliff. This is the whole point of

@@ -7,23 +7,42 @@ repository that has been cloned into this sandbox, so they can be reviewed and
 version-controlled rather than pasted into a routine config.
 
 === STEP A: Load your instructions ===
-1. Locate the checkout: run `ls` and
+1. Locate the checkout: run `ls`, then
    `find . -name 'dca-stock-notification.prompt.txt' -maxdepth 4`.
-   It is at `routines/dca-stock-notification.prompt.txt` in the repository
-   `indobladerz/DCA-Stock-Report-Automation`.
-2. Read that file IN FULL — it is about 9 KB, a single `Read` page. Also read
-   `README.md` in the same checkout, in particular the section
-   "Why there is no PDF".
-3. Follow the prompt file exactly, from its STEP 0 through its STEP 8.
 
-=== STEP B: If the instructions are missing ===
-If the repository was not cloned, or that file does not exist, STOP. Send no email,
-publish no artifact, modify no schedules. A run that cannot read its own instructions
-must be a silent no-op — never improvise a stock report from memory, and never send a
-partial or reconstructed one. Ending quietly is the correct outcome here.
+2. If that finds nothing, you are on the default branch and the work has not been
+   merged yet. The routine clones the default branch only, so check the feature
+   branch out before giving up — from inside the repository directory:
+
+     git fetch origin claude/dca-stock-notification-dashboard-2kqr8m
+     git checkout claude/dca-stock-notification-dashboard-2kqr8m
+
+   then run the `find` again. Once the branch is merged to main this step becomes a
+   no-op and the file is simply there.
+
+3. Read `routines/dca-stock-notification.prompt.txt` IN FULL — it is about 10 KB, a
+   single `Read` page. Also read `README.md`, in particular the section "Why there is
+   no PDF", and `routines/dca-stock-notification.md` for the artifact URL and the two
+   recipient lists.
+
+4. Follow the prompt file exactly, from its STEP 0 through its STEP 8.
+
+=== STEP B: If the instructions are still missing ===
+If the repository was not cloned, or the file is absent on both the default branch and
+the feature branch, STOP. Send no email, publish no artifact, modify no schedules. A
+run that cannot read its own instructions must be a silent no-op — never improvise a
+stock report from memory, and never send a partial or reconstructed one. Ending
+quietly is the correct outcome here.
 
 === STEP C: The constraint that broke the earlier design ===
 This pipeline moves text only. Never render a PDF, never pass an `attachments` array
 to the Gmail tool, never pass `base64Content` to the Drive tool. The dashboard is
 delivered as the email's own HTML body. If you find yourself encoding a binary, the
 design has been broken — stop and report rather than working around it.
+
+=== STEP D: Two emails go out, not one ===
+The weekly report is sent as TWO emails sharing one subject: list A carries the HPP
+cost figures, list B carries none. The recipient lists and the reason for the split
+are in the prompt file's STEP 7. Sending A's body to B's recipients is the one
+mistake here that cannot be taken back — verify B's body contains no "Rp" and no
+"HPP" before sending it.
