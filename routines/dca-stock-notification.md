@@ -22,7 +22,7 @@ cost figures are present.
 
 | | Email A — with HPP | Email B — no HPP |
 |---|---|---|
-| **To** | `vwilliam@dutacendana.com`<br>`stock@suzukidutacendana.com`<br>`fineke99@gmail.com` | `it@dutacendana.com`<br>`om@suzukidutacendana.com`<br>`all.bm@suzukidutacendana.com`<br>`m.rizky@smkwikrama.sch.id` |
+| **To** | `vwilliam@dutacendana.com`<br>`stock@suzukidutacendana.com`<br>`fineke99@gmail.com`<br>`om@suzukidutacendana.com` | `it@dutacendana.com`<br>`all.bm@suzukidutacendana.com`<br>`m.rizky@smkwikrama.sch.id` |
 | **Body** | `out/email-a.html` | `out/email-b.html` |
 | **Cost figures** | stock value, HPP per bucket / branch / model, HPP per aging unit | none anywhere |
 

@@ -160,15 +160,15 @@ are present. Send both with mcp__Gmail__send_message:
 
   --- Email A: with HPP ---
   to:        vwilliam@dutacendana.com, stock@suzukidutacendana.com,
-             fineke99@gmail.com
+             fineke99@gmail.com, om@suzukidutacendana.com
   subject:   Stok Mingguan DCA — per <tanggal, e.g. 29 Agustus 2026>
   htmlBody:  the full contents of out/email-a.html
   body:      short plain-text fallback; may include the stock value
   attachments: OMIT THIS FIELD ENTIRELY.
 
   --- Email B: without HPP ---
-  to:        it@dutacendana.com, om@suzukidutacendana.com,
-             all.bm@suzukidutacendana.com, m.rizky@smkwikrama.sch.id
+  to:        it@dutacendana.com, all.bm@suzukidutacendana.com,
+             m.rizky@smkwikrama.sch.id
   subject:   the SAME subject as A
   htmlBody:  the full contents of out/email-b.html
   body:      short plain-text fallback with NO rupiah figure in it
