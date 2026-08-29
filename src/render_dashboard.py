@@ -434,6 +434,9 @@ TH = (f"padding:6px 10px;border-bottom:2px solid {C['ink']};font-size:10px;font-
       f"letter-spacing:.08em;text-transform:uppercase;color:{C['muted']}")
 TBL = (f"border-collapse:collapse;background:#fff;border:1px solid {C['line']};"
        f"font-family:{FONT};color:{C['ink']}")
+# Gmail strips `background` from inline styles; the bgcolor attribute survives, so
+# every white surface carries both and the layered look holds in the inbox.
+WHITE = 'bgcolor="#ffffff"'
 NOTE = f"font-size:12px;line-height:1.5;color:{C['muted']}"
 DASH = "\u2014"      # em dash; kept out of f-string expressions (no backslashes allowed there)
 MIDDOT = "\u00b7"
@@ -533,10 +536,12 @@ def render_email(m: dict, hpp: bool = True) -> str:
             f'<th style="{TH};text-align:{"right" if right else "left"}">{e(t)}</th>'
             for t, right, money_only in cells if hpp or not money_only)
         return (f'<table role="presentation" cellpadding="0" cellspacing="0" width="100%" '
-                f'style="{TBL}"><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>')
+                f'{WHITE} style="{TBL}"><thead><tr>{head}</tr></thead>'
+                f'<tbody>{rows}</tbody></table>')
 
-    return f"""<div style="background:{C['ground']};padding:24px 12px;font-family:{FONT};\
-color:{C['ink']};font-size:14px;line-height:1.5">
+    return f"""<table role="presentation" cellpadding="0" cellspacing="0" width="100%" \
+bgcolor="{C['ground']}" style="background:{C['ground']};border-collapse:collapse"><tr>\
+<td style="padding:24px 12px;font-family:{FONT};color:{C['ink']};font-size:14px;line-height:1.5">
 <div style="max-width:820px;margin:0 auto">
 
   <div style="border-bottom:2px solid {C['ink']};padding-bottom:14px">
@@ -572,7 +577,7 @@ color:{C['ink']};font-size:14px;line-height:1.5">
           ('Match', True, False), ('Nilai HPP', True, True)], model_rows)}
 
   {h2('Catatan kualitas data')}
-  <div style="background:#fff;border:1px solid {C['line']};padding:14px 16px">
+  <div {WHITE} style="background:#fff;border:1px solid {C['line']};padding:14px 16px">
     <ul style="font-size:13px;line-height:1.6;margin:0;padding-left:18px">{dq_items}</ul>
     <p style="{NOTE};margin:10px 0 0">
       &ldquo;Total Stock&rdquo; pada email sumber menghitung FREE + MATCHING
@@ -586,7 +591,7 @@ color:{C['ink']};font-size:14px;line-height:1.5">
     {e(id_date(m['as_of']))}. Seluruh angka dihitung ulang dari tabel pada email tersebut.
     Daftar unit lengkap tetap tersedia di email ArUnit asli.</p>
 
-</div></div>"""
+</div></td></tr></table>"""
 
 
 if __name__ == "__main__":

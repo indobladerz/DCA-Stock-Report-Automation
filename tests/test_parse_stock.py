@@ -116,6 +116,15 @@ check_true("email A shows stock value", "Nilai stok" in mail_a)
 check("email A aging table has 4 columns", mail_a.count(">Nilai HPP<"), 3)
 check("email B aging table has none", mail_b.count(">Nilai HPP<"), 0)
 
+# Gmail strips `background` from inline styles, so every surface needs a bgcolor
+# attribute too, or the report arrives flat white with no card separation.
+for name, mail in (("A", mail_a), ("B", mail_b)):
+    check_true(f"email {name} sets the page ground via bgcolor",
+               'bgcolor="#f6f7f8"' in mail)
+    check_true(f"email {name} gives every white surface a bgcolor",
+               mail.count('bgcolor="#ffffff"') >= 5,
+               f'{mail.count(chr(34)) and mail.count("bgcolor=") } bgcolor attrs')
+
 # Row counts must match between variants -- B drops columns, never rows.
 check("both variants list the same over-90 units",
       mail_a.count("DB528186"), mail_b.count("DB528186"))
