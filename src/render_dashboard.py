@@ -420,6 +420,24 @@ footer{{font-size:12px;color:var(--muted);border-top:1px solid var(--line);paddi
 FONT = "Helvetica Neue,Helvetica,Arial,sans-serif"
 MONO = "SFMono-Regular,Menlo,Consolas,monospace"
 
+# Reusable style fragments. Inline styles are unavoidable in email, but repeating
+# the full declaration on all ~200 cells made the body 30 KB, of which 82% was
+# duplicated attribute text. font-family is set once per table and inherited, and
+# the cell styles below are shared constants -- the body more than halves, which
+# matters because the whole document is emitted verbatim as a tool-call argument
+# on every run. Same visual result, a third of the bytes.
+_B = f"border-bottom:1px solid {C['line']}"
+TD = f"padding:6px 10px;{_B};font-size:13px"
+TDR = f"{TD};text-align:right;font-family:{MONO}"
+TDM = f"{TD};font-family:{MONO}"
+TH = (f"padding:6px 10px;border-bottom:2px solid {C['ink']};font-size:10px;font-weight:600;"
+      f"letter-spacing:.08em;text-transform:uppercase;color:{C['muted']}")
+TBL = (f"border-collapse:collapse;background:#fff;border:1px solid {C['line']};"
+       f"font-family:{FONT};color:{C['ink']}")
+NOTE = f"font-size:12px;line-height:1.5;color:{C['muted']}"
+DASH = "\u2014"      # em dash; kept out of f-string expressions (no backslashes allowed there)
+MIDDOT = "\u00b7"
+
 
 def render_email(m: dict, artifact_url: str | None = None) -> str:
     c, v, aging = m["counts"], m["value"], m["aging"]
@@ -429,13 +447,13 @@ def render_email(m: dict, artifact_url: str | None = None) -> str:
         return (
             f'<td style="padding:14px 16px;border:1px solid {C["line"]};background:#fff;'
             f'vertical-align:top;width:25%">'
-            f'<div style="font:600 10px/1.4 {FONT};letter-spacing:.09em;text-transform:uppercase;'
-            f'color:{C["muted"]}">{e(label)}</div>'
+            f'<div style="font-size:10px;font-weight:600;letter-spacing:.09em;'
+            f'text-transform:uppercase;color:{C["muted"]}">{e(label)}</div>'
             f'<div style="font:600 26px/1.15 {MONO};color:{color};padding:4px 0 2px">{e(value)}</div>'
-            f'<div style="font:400 12px/1.4 {FONT};color:{C["muted"]}">{e(foot)}</div></td>'
-        )
+            f'<div style="font-size:12px;color:{C["muted"]}">{e(foot)}</div></td>')
 
-    kpis = (kpi("Stok tersedia", c["unsold"], f"{c['free']} free · {c['matching']} matching", C["accent"])
+    kpis = (kpi("Stok tersedia", c["unsold"], f"{c['free']} free {MIDDOT} {c['matching']} matching",
+                C["accent"])
             + kpi("Nilai stok (HPP)", rp_short(v["unsold_hpp"]), "modal tertahan")
             + kpi("Umur > 90 hari", aging.get("> 90 hari", {}).get("count", 0),
                   f"{rp_short(v['over_90_hpp'])} tertahan",
@@ -444,54 +462,35 @@ def render_email(m: dict, artifact_url: str | None = None) -> str:
                   C["crit"] if m["uncounted_rows"] else C["ink"]))
 
     aging_rows = "".join(
-        f'<tr>'
-        f'<td style="padding:6px 10px;border-bottom:1px solid {C["line"]};font:400 13px/1.4 {FONT}">'
+        f'<tr><td style="{TD}">'
         f'<span style="display:inline-block;width:8px;height:8px;border-radius:4px;'
         f'background:{BUCKET_COLOR.get(k, C["muted"])};margin-right:8px"></span>{e(k)}</td>'
-        f'<td style="padding:6px 10px;border-bottom:1px solid {C["line"]};font:500 13px/1.4 {MONO};'
-        f'text-align:right">{d["count"]}</td>'
-        f'<td style="padding:6px 10px;border-bottom:1px solid {C["line"]};font:400 13px/1.4 {MONO};'
-        f'text-align:right;color:{C["muted"]}">{d["count"] / unsold * 100:.0f}%</td>'
-        f'<td style="padding:6px 10px;border-bottom:1px solid {C["line"]};font:400 13px/1.4 {MONO};'
-        f'text-align:right">{rp(d["value"])}</td></tr>'
-        for k, d in aging.items() if d["count"]
-    )
+        f'<td style="{TDR}">{d["count"]}</td>'
+        f'<td style="{TDR};color:{C["muted"]}">{d["count"] / unsold * 100:.0f}%</td>'
+        f'<td style="{TDR}">{rp(d["value"])}</td></tr>'
+        for k, d in aging.items() if d["count"])
 
-    def simple_rows(items, cols):
+    def group_rows(items):
         return "".join(
-            "<tr>" + "".join(
-                f'<td style="padding:6px 10px;border-bottom:1px solid {C["line"]};'
-                f'font:{"500 13px/1.4 " + MONO if right else "400 13px/1.4 " + FONT};'
-                f'text-align:{"right" if right else "left"}">{cell}</td>'
-                for cell, right in row) + "</tr>"
-            for row in (cols(k, r) for k, r in items)
-        )
+            f'<tr><td style="{TD}">{e(k)}</td>'
+            f'<td style="{TDR}">{r["count"]}</td>'
+            f'<td style="{TDR}">{r["free"]}</td>'
+            f'<td style="{TDR}">{r["matching"]}</td>'
+            f'<td style="{TDR}">{rp(r["value"])}</td></tr>'
+            for k, r in items)
 
-    loc_rows = simple_rows(
-        m["by_location"].items(),
-        lambda k, r: [(e(k), False), (str(r["count"]), True),
-                      (str(r["free"]), True), (str(r["matching"]), True),
-                      (rp(r["value"]), True)])
-
-    model_rows = simple_rows(
-        m["by_model"].items(),
-        lambda k, r: [(e(k), False), (str(r["count"]), True),
-                      (str(r["free"]), True), (str(r["matching"]), True),
-                      (rp(r["value"]), True)])
+    loc_rows = group_rows(m["by_location"].items())
+    model_rows = group_rows(m["by_model"].items())
 
     over90 = "".join(
-        f'<tr>'
-        f'<td style="padding:6px 10px;border-bottom:1px solid {C["line"]};font:500 13px/1.4 {MONO}">{e(u["no_do"])}</td>'
-        f'<td style="padding:6px 10px;border-bottom:1px solid {C["line"]};font:400 13px/1.4 {FONT}">'
-        f'{e(u["nama_mobil"])} <span style="color:{C["muted"]}">{e(u["varian"])}</span></td>'
-        f'<td style="padding:6px 10px;border-bottom:1px solid {C["line"]};font:400 13px/1.4 {FONT}">{e(u["lokasi"] or "—")}</td>'
-        f'<td style="padding:6px 10px;border-bottom:1px solid {C["line"]};font:600 13px/1.4 {MONO};'
-        f'text-align:right;color:{C["crit"]}">{u["age_days"]}</td>'
-        f'<td style="padding:6px 10px;border-bottom:1px solid {C["line"]};font:400 13px/1.4 {MONO};'
-        f'text-align:right">{rp(u["hpp"])}</td></tr>'
+        f'<tr><td style="{TDM}">{e(u["no_do"])}</td>'
+        f'<td style="{TD}">{e(u["nama_mobil"])} '
+        f'<span style="color:{C["muted"]}">{e(u["varian"])}</span></td>'
+        f'<td style="{TD}">{e(u["lokasi"] or DASH)}</td>'
+        f'<td style="{TDR};font-weight:600;color:{C["crit"]}">{u["age_days"]}</td>'
+        f'<td style="{TDR}">{rp(u["hpp"])}</td></tr>'
         for u in m["over_90"]
-    ) or (f'<tr><td colspan="5" style="padding:10px;font:italic 400 13px/1.4 {FONT};'
-          f'color:{C["muted"]}">Tidak ada unit di atas 90 hari.</td></tr>')
+    ) or f'<tr><td colspan="5" style="{TD};font-style:italic;color:{C["muted"]}">Tidak ada unit di atas 90 hari.</td></tr>'
 
     dq = m["data_quality"]
     dq_items = "".join(
@@ -500,81 +499,68 @@ def render_email(m: dict, artifact_url: str | None = None) -> str:
     dup = ", ".join(dq["duplicate_do"])
 
     def h2(t):
-        return (f'<div style="font:600 11px/1.4 {FONT};letter-spacing:.12em;'
+        return (f'<div style="font-size:11px;font-weight:600;letter-spacing:.12em;'
                 f'text-transform:uppercase;color:{C["muted"]};padding:26px 0 8px">{e(t)}</div>')
 
     def thead(cells):
         return "<tr>" + "".join(
-            f'<th style="padding:6px 10px;border-bottom:2px solid {C["ink"]};'
-            f'font:600 10px/1.4 {FONT};letter-spacing:.08em;text-transform:uppercase;'
-            f'color:{C["muted"]};text-align:{"right" if right else "left"}">{e(t)}</th>'
+            f'<th style="{TH};text-align:{"right" if right else "left"}">{e(t)}</th>'
             for t, right in cells) + "</tr>"
+
+    def table(cells, rows):
+        return (f'<table role="presentation" cellpadding="0" cellspacing="0" width="100%" '
+                f'style="{TBL}"><thead>{thead(cells)}</thead><tbody>{rows}</tbody></table>')
 
     link = ""
     if artifact_url:
-        link = (f'<p style="font:400 13px/1.6 {FONT};color:{C["muted"]};margin:18px 0 0">'
-                f'Versi dasbor lengkap (dapat disaring per status): '
+        link = (f'<p style="font-size:13px;line-height:1.6;color:{C["muted"]};margin:18px 0 0">'
+                f'Versi dasbor lengkap, dapat disaring per status: '
                 f'<a href="{e(artifact_url)}" style="color:{C["accent"]}">buka dasbor</a>.</p>')
 
-    return f"""<div style="background:{C['ground']};padding:24px 12px;font-family:{FONT};color:{C['ink']}">
-<div style="max-width:820px;margin:0 auto;background:{C['ground']}">
+    return f"""<div style="background:{C['ground']};padding:24px 12px;font-family:{FONT};\
+color:{C['ink']};font-size:14px;line-height:1.5">
+<div style="max-width:820px;margin:0 auto">
 
   <div style="border-bottom:2px solid {C['ink']};padding-bottom:14px">
-    <div style="font:600 10px/1.4 {FONT};letter-spacing:.13em;text-transform:uppercase;
+    <div style="font-size:10px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;
       color:{C['muted']}">PT. Duta Cendana Adimandiri &middot; Suzuki</div>
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
-      <td style="font:800 24px/1.2 {FONT};letter-spacing:-.02em;padding-top:4px">Stok Harian</td>
-      <td style="font:400 13px/1.2 {MONO};color:{C['muted']};text-align:right;vertical-align:bottom">
-        {e(id_date(m['as_of']))}</td>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+      style="font-family:{FONT}"><tr>
+      <td style="font-size:24px;font-weight:800;letter-spacing:-.02em;padding-top:4px">Stok Harian</td>
+      <td style="font-family:{MONO};font-size:13px;color:{C['muted']};text-align:right;
+        vertical-align:bottom">{e(id_date(m['as_of']))}</td>
     </tr></table>
   </div>
 
   <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-    style="border-collapse:collapse;margin-top:18px"><tr>{kpis}</tr></table>
+    style="border-collapse:collapse;margin-top:18px;font-family:{FONT}"><tr>{kpis}</tr></table>
 
   {h2('Umur stok')}
-  <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-    style="border-collapse:collapse;background:#fff;border:1px solid {C['line']}">
-    <thead>{thead([('Kelompok umur', False), ('Unit', True), ('Porsi', True), ('Nilai HPP', True)])}</thead>
-    <tbody>{aging_rows}</tbody>
-  </table>
-  <p style="font:400 12px/1.5 {FONT};color:{C['muted']};margin:8px 0 0">
-    Dihitung sejak tanggal DO sampai {e(id_date(m['as_of']))}, hanya unit yang belum terjual.</p>
+  {table([('Kelompok umur', False), ('Unit', True), ('Porsi', True), ('Nilai HPP', True)], aging_rows)}
+  <p style="{NOTE};margin:8px 0 0">Dihitung sejak tanggal DO sampai
+    {e(id_date(m['as_of']))}, hanya unit yang belum terjual.</p>
 
   {h2('Perlu perhatian — stok di atas 90 hari')}
-  <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-    style="border-collapse:collapse;background:#fff;border:1px solid {C['line']}">
-    <thead>{thead([('No DO', False), ('Unit', False), ('Lokasi', False), ('Umur', True), ('HPP', True)])}</thead>
-    <tbody>{over90}</tbody>
-  </table>
+  {table([('No DO', False), ('Unit', False), ('Lokasi', False), ('Umur', True), ('HPP', True)], over90)}
 
   {h2('Stok tersedia per lokasi')}
-  <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-    style="border-collapse:collapse;background:#fff;border:1px solid {C['line']}">
-    <thead>{thead([('Lokasi', False), ('Unit', True), ('Free', True), ('Match', True), ('Nilai HPP', True)])}</thead>
-    <tbody>{loc_rows}</tbody>
-  </table>
+  {table([('Lokasi', False), ('Unit', True), ('Free', True), ('Match', True), ('Nilai HPP', True)], loc_rows)}
 
   {h2('Per model')}
-  <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-    style="border-collapse:collapse;background:#fff;border:1px solid {C['line']}">
-    <thead>{thead([('Model', False), ('Unit', True), ('Free', True), ('Match', True), ('Nilai HPP', True)])}</thead>
-    <tbody>{model_rows}</tbody>
-  </table>
+  {table([('Model', False), ('Unit', True), ('Free', True), ('Match', True), ('Nilai HPP', True)], model_rows)}
 
   {h2('Catatan kualitas data')}
   <div style="background:#fff;border:1px solid {C['line']};padding:14px 16px">
-    <ul style="font:400 13px/1.6 {FONT};margin:0;padding-left:18px">{dq_items}</ul>
-    <p style="font:400 12px/1.5 {FONT};color:{C['muted']};margin:10px 0 0">
+    <ul style="font-size:13px;line-height:1.6;margin:0;padding-left:18px">{dq_items}</ul>
+    <p style="{NOTE};margin:10px 0 0">
       &ldquo;Total Stock&rdquo; pada email sumber menghitung FREE + MATCHING
       ({c['unsold']} unit), bukan seluruh {m['rows_in_table']} baris tabel.
       {m['uncounted_rows']} baris tidak berstatus sehingga tidak terhitung di mana pun.
-      No DO ganda: <span style="font-family:{MONO}">{e(dup or '—')}</span>.</p>
+      No DO ganda: <span style="font-family:{MONO}">{e(dup or DASH)}</span>.</p>
   </div>
   {link}
 
-  <p style="font:400 12px/1.6 {FONT};color:{C['muted']};border-top:1px solid {C['line']};
-    padding-top:14px;margin-top:28px">
+  <p style="{NOTE};border-top:1px solid {C['line']};padding-top:14px;margin-top:28px">
     Disusun otomatis dari email <em>Notifikasi Stock</em> ArUnit tertanggal
     {e(id_date(m['as_of']))}. Seluruh angka dihitung ulang dari tabel pada email tersebut.
     Daftar unit lengkap tetap tersedia di email ArUnit asli.</p>
