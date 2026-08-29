@@ -160,7 +160,8 @@ are present. Send both with mcp__Gmail__send_message:
 
   --- Email A: with HPP ---
   to:        vwilliam@dutacendana.com, stock@suzukidutacendana.com,
-             fineke99@gmail.com, om@suzukidutacendana.com
+             fineke99@gmail.com, om@suzukidutacendana.com,
+             finance@suzukidutacendana.com
   subject:   Stok Mingguan DCA — per <tanggal, e.g. 29 Agustus 2026>
   htmlBody:  the full contents of out/email-a.html
   body:      short plain-text fallback; may include the stock value
