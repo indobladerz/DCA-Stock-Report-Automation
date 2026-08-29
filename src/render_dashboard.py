@@ -144,7 +144,7 @@ def render_artifact(m: dict) -> str:
         for r in m["reconciliation"]
     )
 
-    return f"""<title>Stok Harian DCA</title>
+    return f"""<title>Stok Mingguan DCA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
@@ -254,9 +254,9 @@ footer{{font-size:12px;color:var(--muted);border-top:1px solid var(--line);paddi
 <div class="wrap">
   <header class="masthead">
     <span class="eyebrow">PT. Duta Cendana Adimandiri &middot; Suzuki</span>
-    <h1>Stok Harian</h1>
+    <h1>Stok Mingguan</h1>
     <span class="spacer"></span>
-    <span class="sub mono">{e(id_date(m['as_of']))}</span>
+    <span class="sub mono">per {e(id_date(m['as_of']))}</span>
   </header>
 
   <section>
@@ -526,9 +526,9 @@ color:{C['ink']};font-size:14px;line-height:1.5">
       color:{C['muted']}">PT. Duta Cendana Adimandiri &middot; Suzuki</div>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
       style="font-family:{FONT}"><tr>
-      <td style="font-size:24px;font-weight:800;letter-spacing:-.02em;padding-top:4px">Stok Harian</td>
+      <td style="font-size:24px;font-weight:800;letter-spacing:-.02em;padding-top:4px">Stok Mingguan</td>
       <td style="font-family:{MONO};font-size:13px;color:{C['muted']};text-align:right;
-        vertical-align:bottom">{e(id_date(m['as_of']))}</td>
+        vertical-align:bottom">per {e(id_date(m['as_of']))}</td>
     </tr></table>
   </div>
 

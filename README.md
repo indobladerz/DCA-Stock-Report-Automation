@@ -1,11 +1,16 @@
 # DCA Stock Report Automation
 
-Daily stock (vehicle inventory) dashboard for **PT. Duta Cendana Adimandiri** (Suzuki).
+Weekly stock (vehicle inventory) dashboard for **PT. Duta Cendana Adimandiri**
+(Suzuki), sent Friday evening.
 
 Every morning the upstream "ArUnit" system emails a *Notifikasi Stock* — a summary
-line and a 176-row, 21-column table of every unit on the books. This repository turns
-that raw table into a dashboard: aging, capital tied up, per-branch and per-model
-roll-ups, and the data-quality defects that a wall of text hides.
+line and a 176-row, 21-column table of every unit on the books. Read daily, it is a
+wall of text. This repository turns the Friday edition of it into a weekly dashboard:
+aging, capital tied up, per-branch and per-model roll-ups, and the data-quality defects
+the raw table hides.
+
+The daily ArUnit mail keeps running and is unaffected; this is the weekly read on top
+of it, for the questions a daily unit list does not answer.
 
 | | |
 |---|---|
@@ -70,7 +75,7 @@ Consequences of that choice, all deliberate:
 - **No `base64Content` is ever passed to the Drive tool**, and there is no Drive
   archive step. Nothing in this pipeline needs one.
 - **The Artifact is the rich version**, published to a stable URL that updates in
-  place each day. The email links to it for the account owner; recipients never need
+  place each week. The email links to it for the account owner; recipients never need
   it, because the email body is complete on its own.
 - **No `pip install`.** The old PDF path pulled in WeasyPrint (fragile) and then
   ReportLab. Removing the PDF removed the dependency, so a cold sandbox has nothing

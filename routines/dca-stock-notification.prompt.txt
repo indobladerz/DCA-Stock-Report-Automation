@@ -1,4 +1,4 @@
-DCA DAILY STOCK NOTIFICATION DASHBOARD — OPERATING INSTRUCTIONS
+DCA WEEKLY STOCK DASHBOARD — OPERATING INSTRUCTIONS
 
 You are running as an unattended scheduled task for Vincent William (PT. Duta Cendana
 Adimandiri, Suzuki dealer). Fresh session, no memory of prior runs. Ask no questions;
@@ -38,14 +38,17 @@ It must print "PASS". If it fails, STOP: send nothing, and report the failure. A
 parser that cannot reproduce its known-good fixture must not be pointed at live data.
 
 --------------------------------------------------------------------------------
-STEP 1 — Fetch today's source email
+STEP 1 — Fetch the source email
 --------------------------------------------------------------------------------
-The upstream system ("ArUnit") emails a stock notification every morning at about
-09:00 WIB / 02:00 UTC. Find the most recent one:
+You run Friday evening. The upstream system ("ArUnit") emails a stock notification
+every morning at about 09:00 WIB / 02:00 UTC, so the newest one is normally this same
+Friday morning's. Find it:
 
   mcp__Gmail__search_threads with
-    query: subject:"Notifikasi Stock" newer_than:2d
+    query: subject:"Notifikasi Stock" newer_than:5d
     pageSize: 10
+
+Take the NEWEST result. Its own date is the report's "as of" date.
 
 Senders seen historically: stockdcasystem@gmail.com and ar.dutacendana@gmail.com.
 Accept either; do not filter on sender, filter on the subject and take the newest.
@@ -59,14 +62,20 @@ exactly what the parser expects. Do not request FULL_CONTENT — the HTML body i
 ~480 KB and will flood your context for no benefit.
 
 --------------------------------------------------------------------------------
-STEP 2 — Guard: is there anything to report?
+STEP 2 — Guard: is the data fresh enough?
 --------------------------------------------------------------------------------
-If no "Notifikasi Stock" email exists dated today (WIB), this run is a SILENT NO-OP.
-Send no email, publish nothing, report "no source email for today" and end. The
-upstream system occasionally skips a day; that is not an incident and must not
-produce a report built from yesterday's numbers.
+The upstream system occasionally skips a day. At a weekly cadence, skipping the whole
+week because Friday's send was missed is worse than reporting Thursday's position — so
+accept the newest notification from the last 4 days and label it honestly.
 
-Take the email's own date as the report date. Never substitute today's date for it.
+  - Newest notification is 0-4 days old  -> proceed. The report is titled "per
+    <that email's date>", never "per today". If it is not from today, say so in your
+    STEP 8 summary.
+  - Newest notification is older than 4 days, or there is none -> SILENT NO-OP.
+    Send no email, publish nothing, report "no recent source email" and end.
+
+Never substitute today's date for the source email's date, and never carry numbers
+forward from a previous week.
 
 --------------------------------------------------------------------------------
 STEP 3 — Parse
@@ -119,7 +128,8 @@ Publish out/artifact.html with the Artifact tool.
   - Before publishing to an existing artifact you must first read it
     (action: "read" with that url), or the publish is refused.
   - favicon: omit on updates. It stays the car icon for the life of the artifact.
-  - label: the report date, e.g. "29-agustus-2026".
+  - label: the report date, e.g. "29-agustus-2026". The artifact updates in
+    place every week, so the same link always shows the latest week.
 
 Then re-run STEP 5 passing the artifact URL, so the email body carries a working
 link to the dashboard.
@@ -129,7 +139,7 @@ STEP 7 — Send the email
 --------------------------------------------------------------------------------
 Duplicate guard first. Search sent mail for today's report:
 
-  mcp__Gmail__search_threads with query: in:sent subject:"Stok Harian DCA" newer_than:1d
+  mcp__Gmail__search_threads with query: in:sent subject:"Stok Mingguan DCA" newer_than:4d
 
 If a send for this report date already went out, do NOT send again — end and report
 "already delivered". The check is per recipient set: if a previous run sent to some
@@ -138,7 +148,7 @@ recipients and failed on others, complete only the missing ones.
 Send with mcp__Gmail__send_message:
 
   to:        (see the DISTRIBUTION LIST section in routines/dca-stock-notification.md)
-  subject:   Stok Harian DCA — <tanggal, e.g. 29 Agustus 2026>
+  subject:   Stok Mingguan DCA — per <tanggal, e.g. 29 Agustus 2026>
   htmlBody:  the full contents of out/email.html
   body:      a short plain-text fallback: the headline figures in one paragraph
   attachments: OMIT THIS FIELD ENTIRELY.
@@ -164,7 +174,8 @@ The source email already lists every unit. Restating that list adds nothing. Wha
 does NOT do, and what this report exists to add:
 
   - Aging. Days since DO, bucketed, for unsold units only. Capital sitting in metal
-    older than 90 days is the single number a dealer principal acts on.
+    older than 90 days is the single number a dealer principal acts on, and a weekly
+    rhythm is the right one for acting on it.
   - Value. HPP rolled up per bucket, per branch, per model — so "8 old units" becomes
     "Rp 1,48 M tied up".
   - Reconciliation. The source's "Total Stock" counter is FREE + MATCHING, not the
