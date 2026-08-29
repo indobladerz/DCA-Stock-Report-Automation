@@ -75,8 +75,9 @@ Consequences of that choice, all deliberate:
 - **No `base64Content` is ever passed to the Drive tool**, and there is no Drive
   archive step. Nothing in this pipeline needs one.
 - **The Artifact is the rich version**, published to a stable URL that updates in
-  place each week. The email links to it for the account owner; recipients never need
-  it, because the email body is complete on its own.
+  place each week. Its URL is never emailed to anyone — the recipients are dealership
+  staff, not Claude users, and a link none of them can open is worse than no link.
+  Both email bodies are complete on their own.
 - **No `pip install`.** The old PDF path pulled in WeasyPrint (fragile) and then
   ReportLab. Removing the PDF removed the dependency, so a cold sandbox has nothing
   to install and nothing to fail at.
@@ -124,15 +125,26 @@ Two renderers, one visual system, defined once at the top of
 - hairline rules rather than heavy cards; the dashboard stays deliberately minimal
 
 The Artifact version adds webfonts, both colour themes, and a status filter over the
-full ledger. The email version drops webfonts and script (mail clients strip both),
-inlines every style, and stops at the summary — the full unit list stays in the
-upstream ArUnit email, which is not going away.
+full ledger. The email versions drop webfonts and script (mail clients strip both),
+inline every style, and stop at the summary — the full unit list stays in the upstream
+ArUnit email, which is not going away.
+
+**Two email variants.** `render_email(metrics, hpp=True)` produces email A, which
+carries the cost figures and goes to the owner and the stock desk;
+`hpp=False` produces email B for everyone else, with no rupiah figure anywhere. B is
+not A with the numbers blanked — the HPP columns are removed and the stock-value
+headline tile is replaced by the sold count, so B reads as a complete report rather
+than a redacted one. A blanked cell still announces that a figure is being withheld;
+a missed one leaks it. The tests assert B contains no `Rp` and no `HPP` at all, and
+that both variants keep the same rows and the same four headline tiles. See
+[`routines/dca-stock-notification.md`](routines/dca-stock-notification.md) for the
+two recipient lists.
 
 ## Layout
 
 ```
 src/parse_stock.py       email plaintext -> normalised units + metrics JSON
-src/render_dashboard.py  metrics -> out/artifact.html + out/email.html
+src/render_dashboard.py  metrics -> out/artifact.html + out/email-{a,b}.html
 routines/                the scheduled routine: metadata + full instructions
 loaders/                 the ~1.5 KB prompt the trigger config actually stores
 tests/                   fixture (a real captured email) + assertions

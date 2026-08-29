@@ -109,11 +109,18 @@ which gate failed and the figures involved. Then end.
 --------------------------------------------------------------------------------
 STEP 5 — Render
 --------------------------------------------------------------------------------
-  python3 src/render_dashboard.py out/metrics.json <ARTIFACT_URL_IF_KNOWN>
+  python3 src/render_dashboard.py out/metrics.json
 
-This writes out/artifact.html (the dashboard) and out/email.html (the email body).
-Neither is binary. Do not hand-edit either file; change the renderer instead so the
-next run inherits the fix.
+This writes three files, none of them binary:
+
+  out/artifact.html   the dashboard, with HPP -- published, not emailed
+  out/email-a.html    email A body, WITH HPP cost figures
+  out/email-b.html    email B body, NO cost figures anywhere
+
+Do not hand-edit any of them; change the renderer instead so the next run inherits
+the fix. In particular, never produce variant B by editing variant A -- the renderer
+removes whole columns and swaps the value tile for the sold count, which blanking
+cells by hand would not reproduce.
 
 --------------------------------------------------------------------------------
 STEP 6 — Publish the dashboard Artifact
@@ -131,8 +138,9 @@ Publish out/artifact.html with the Artifact tool.
   - label: the report date, e.g. "29-agustus-2026". The artifact updates in
     place every week, so the same link always shows the latest week.
 
-Then re-run STEP 5 passing the artifact URL, so the email body carries a working
-link to the dashboard.
+The Artifact is the account owner's reference copy. Its URL is NEVER emailed to
+anyone: the recipients are dealership staff, not Claude users, and a link none of
+them can open is worse than no link. Both email bodies are complete on their own.
 
 --------------------------------------------------------------------------------
 STEP 7 — Send the email
@@ -141,17 +149,36 @@ Duplicate guard first. Search sent mail for today's report:
 
   mcp__Gmail__search_threads with query: in:sent subject:"Stok Mingguan DCA" newer_than:4d
 
-If a send for this report date already went out, do NOT send again — end and report
-"already delivered". The check is per recipient set: if a previous run sent to some
-recipients and failed on others, complete only the missing ones.
+The check is PER RECIPIENT, not per subject. A and B share a subject, so a
+subject-only check would let a run that sent A and failed on B mark the week complete
+and silently never deliver B. Look at who each already-sent message actually went to,
+and send only the missing side. If both went out for this report date, end and report
+"already delivered".
 
-Send with mcp__Gmail__send_message:
+TWO SENDS GO OUT, sharing one subject. They differ only in whether cost figures
+are present. Send both with mcp__Gmail__send_message:
 
-  to:        (see the DISTRIBUTION LIST section in routines/dca-stock-notification.md)
+  --- Email A: with HPP ---
+  to:        vwilliam@dutacendana.com, stock@suzukidutacendana.com
   subject:   Stok Mingguan DCA — per <tanggal, e.g. 29 Agustus 2026>
-  htmlBody:  the full contents of out/email.html
-  body:      a short plain-text fallback: the headline figures in one paragraph
+  htmlBody:  the full contents of out/email-a.html
+  body:      short plain-text fallback; may include the stock value
   attachments: OMIT THIS FIELD ENTIRELY.
+
+  --- Email B: without HPP ---
+  to:        it@dutacendana.com, om@suzukidutacendana.com, fineke99@gmail.com,
+             m.rizky@smkwikrama.sch.id
+  subject:   the SAME subject as A
+  htmlBody:  the full contents of out/email-b.html
+  body:      short plain-text fallback with NO rupiah figure in it
+  attachments: OMIT THIS FIELD ENTIRELY.
+
+Before sending B, grep its body for "Rp" and for "HPP" and confirm both return
+nothing. Variant B exists so that cost data does not reach that audience; sending A
+to B's recipients is the one failure here that cannot be taken back. If the check
+finds anything, send A only and report the problem.
+
+Never put a recipient on both emails, and never CC across the two lists.
 
 The htmlBody is passed as an ordinary string. It is roughly 30 KB of readable markup —
 low entropy, no encoding, and it has no reliability cliff. This is the whole point of
@@ -164,7 +191,8 @@ fall back to attaching anything.
 STEP 8 — Report
 --------------------------------------------------------------------------------
 Summarise in a few lines: report date, rows parsed, unsold count, HPP tied up, count
-over 90 days, any data-quality findings, the artifact URL, and who the email went to.
+over 90 days, any data-quality findings, the artifact URL, and the recipients of each
+of the two emails, stated separately so it is clear both went out.
 Do not commit anything except an artifact URL first written in STEP 6.
 
 --------------------------------------------------------------------------------

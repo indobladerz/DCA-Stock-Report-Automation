@@ -77,19 +77,48 @@ check_true("SBAM row kept intact",
            any(u["no_do"] == "SBAM DB619731" for u in m["units"]))
 
 # --- renderers ------------------------------------------------------------
-art, mail = render_artifact(m), render_email(m, "https://example.invalid/x")
+art = render_artifact(m)
+mail_a = render_email(m, hpp=True)     # vwilliam@ + stock@ : with cost figures
+mail_b = render_email(m, hpp=False)    # everyone else      : no cost figures
 
 check_true("artifact has title", art.lstrip().startswith("<title>"))
 check_true("artifact defines light tokens first", art.index(":root {") < art.index("@media"))
 check_true("artifact paints body", "background:var(--ground)" in art)
 check_true("artifact ledger complete",
            art.count('<tr data-status=') == m["rows_in_table"])
-check_true("email carries no attachment markup", "base64" not in mail.lower())
-check_true("email has no script", "<script" not in mail.lower())
-check_true("email has no webfont", "fonts.googleapis" not in mail)
-check_true("email links the dashboard", "https://example.invalid/x" in mail)
-# Reliability budget: an email body is plain text, but keep it sane.
-check_true("email under 200 KB", len(mail.encode()) < 200_000, f"{len(mail.encode())} B")
+
+for name, mail in (("A", mail_a), ("B", mail_b)):
+    check_true(f"email {name} carries no attachment markup", "base64" not in mail.lower())
+    check_true(f"email {name} has no script", "<script" not in mail.lower())
+    check_true(f"email {name} has no webfont", "fonts.googleapis" not in mail)
+    # Recipients are dealership staff, not Claude users -- no artifact link goes out.
+    check_true(f"email {name} leaks no artifact URL", "claude.ai" not in mail)
+    check_true(f"email {name} under 200 KB", len(mail.encode()) < 200_000,
+               f"{len(mail.encode())} B")
+    # Both variants must still carry the operational content.
+    for must in ("Stok Mingguan", "Umur stok", "di atas 90 hari",
+                 "per lokasi", "Per model", "kualitas data"):
+        check_true(f"email {name} keeps section {must!r}", must in mail)
+
+# The whole point of the split: B must contain no cost figure anywhere.
+check("email B has no rupiah", mail_b.count("Rp"), 0)
+check("email B has no HPP label", mail_b.upper().count("HPP"), 0)
+check_true("email A does carry rupiah", mail_a.count("Rp ") > 20)
+check_true("email A carries HPP labels", "HPP" in mail_a)
+
+# B replaces the value tile rather than leaving a gap -- four tiles either way.
+check("email A tile count", mail_a.count("width:25%"), 4)
+check("email B tile count", mail_b.count("width:25%"), 4)
+check_true("email B substitutes the sold count", "Sudah terjual" in mail_b)
+check_true("email A shows stock value", "Nilai stok" in mail_a)
+
+# Column counts must actually differ, or the money cells were only blanked.
+check("email A aging table has 4 columns", mail_a.count(">Nilai HPP<"), 3)
+check("email B aging table has none", mail_b.count(">Nilai HPP<"), 0)
+
+# Row counts must match between variants -- B drops columns, never rows.
+check("both variants list the same over-90 units",
+      mail_a.count("DB528186"), mail_b.count("DB528186"))
 
 # --- degenerate inputs ----------------------------------------------------
 try:

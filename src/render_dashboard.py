@@ -439,7 +439,22 @@ DASH = "\u2014"      # em dash; kept out of f-string expressions (no backslashes
 MIDDOT = "\u00b7"
 
 
-def render_email(m: dict, artifact_url: str | None = None) -> str:
+def render_email(m: dict, hpp: bool = True) -> str:
+    """Render the weekly email body.
+
+    hpp=True  -> variant A: the full report, including HPP cost figures.
+    hpp=False -> variant B: identical report with every rupiah figure removed.
+
+    B is not A with the numbers blanked out -- the columns are gone and the
+    headline tile that carried the stock value is replaced by the sold count, so
+    the layout reads as a complete report rather than one with holes in it.
+
+    Neither variant carries the Artifact URL. Recipients other than the account
+    owner are dealership staff, not Claude users; a link none of them can open is
+    worse than no link, and the email body is complete on its own. The Artifact
+    stays the owner's reference copy. This matches the policy already settled in
+    the sibling financial-report-automation repo.
+    """
     c, v, aging = m["counts"], m["value"], m["aging"]
     unsold = max(c["unsold"], 1)
 
@@ -452,14 +467,23 @@ def render_email(m: dict, artifact_url: str | None = None) -> str:
             f'<div style="font:600 26px/1.15 {MONO};color:{color};padding:4px 0 2px">{e(value)}</div>'
             f'<div style="font-size:12px;color:{C["muted"]}">{e(foot)}</div></td>')
 
-    kpis = (kpi("Stok tersedia", c["unsold"], f"{c['free']} free {MIDDOT} {c['matching']} matching",
-                C["accent"])
-            + kpi("Nilai stok (HPP)", rp_short(v["unsold_hpp"]), "modal tertahan")
-            + kpi("Umur > 90 hari", aging.get("> 90 hari", {}).get("count", 0),
-                  f"{rp_short(v['over_90_hpp'])} tertahan",
-                  C["crit"] if aging.get("> 90 hari", {}).get("count") else C["ink"])
-            + kpi("Tanpa status", m["uncounted_rows"], "perlu dilengkapi",
-                  C["crit"] if m["uncounted_rows"] else C["ink"]))
+    over90_n = aging.get("> 90 hari", {}).get("count", 0)
+    crit = C["crit"] if over90_n else C["ink"]
+
+    kpis = kpi("Stok tersedia", c["unsold"],
+               f"{c['free']} free {MIDDOT} {c['matching']} matching", C["accent"])
+    if hpp:
+        kpis += kpi("Nilai stok (HPP)", rp_short(v["unsold_hpp"]), "modal tertahan")
+        kpis += kpi("Umur > 90 hari", over90_n, f"{rp_short(v['over_90_hpp'])} tertahan", crit)
+    else:
+        kpis += kpi("Sudah terjual", c["sold"], "tercatat di tabel yang sama")
+        kpis += kpi("Umur > 90 hari", over90_n, "perlu ditindaklanjuti", crit)
+    kpis += kpi("Tanpa status", m["uncounted_rows"], "perlu dilengkapi",
+                C["crit"] if m["uncounted_rows"] else C["ink"])
+
+    def money(cell):
+        """A right-aligned rupiah cell, or nothing at all in variant B."""
+        return f'<td style="{TDR}">{cell}</td>' if hpp else ""
 
     aging_rows = "".join(
         f'<tr><td style="{TD}">'
@@ -467,7 +491,7 @@ def render_email(m: dict, artifact_url: str | None = None) -> str:
         f'background:{BUCKET_COLOR.get(k, C["muted"])};margin-right:8px"></span>{e(k)}</td>'
         f'<td style="{TDR}">{d["count"]}</td>'
         f'<td style="{TDR};color:{C["muted"]}">{d["count"] / unsold * 100:.0f}%</td>'
-        f'<td style="{TDR}">{rp(d["value"])}</td></tr>'
+        f'{money(rp(d["value"]))}</tr>'
         for k, d in aging.items() if d["count"])
 
     def group_rows(items):
@@ -476,7 +500,7 @@ def render_email(m: dict, artifact_url: str | None = None) -> str:
             f'<td style="{TDR}">{r["count"]}</td>'
             f'<td style="{TDR}">{r["free"]}</td>'
             f'<td style="{TDR}">{r["matching"]}</td>'
-            f'<td style="{TDR}">{rp(r["value"])}</td></tr>'
+            f'{money(rp(r["value"]))}</tr>'
             for k, r in items)
 
     loc_rows = group_rows(m["by_location"].items())
@@ -488,9 +512,10 @@ def render_email(m: dict, artifact_url: str | None = None) -> str:
         f'<span style="color:{C["muted"]}">{e(u["varian"])}</span></td>'
         f'<td style="{TD}">{e(u["lokasi"] or DASH)}</td>'
         f'<td style="{TDR};font-weight:600;color:{C["crit"]}">{u["age_days"]}</td>'
-        f'<td style="{TDR}">{rp(u["hpp"])}</td></tr>'
+        f'{money(rp(u["hpp"]))}</tr>'
         for u in m["over_90"]
-    ) or f'<tr><td colspan="5" style="{TD};font-style:italic;color:{C["muted"]}">Tidak ada unit di atas 90 hari.</td></tr>'
+    ) or (f'<tr><td colspan="{5 if hpp else 4}" style="{TD};font-style:italic;'
+          f'color:{C["muted"]}">Tidak ada unit di atas 90 hari.</td></tr>')
 
     dq = m["data_quality"]
     dq_items = "".join(
@@ -502,20 +527,13 @@ def render_email(m: dict, artifact_url: str | None = None) -> str:
         return (f'<div style="font-size:11px;font-weight:600;letter-spacing:.12em;'
                 f'text-transform:uppercase;color:{C["muted"]};padding:26px 0 8px">{e(t)}</div>')
 
-    def thead(cells):
-        return "<tr>" + "".join(
-            f'<th style="{TH};text-align:{"right" if right else "left"}">{e(t)}</th>'
-            for t, right in cells) + "</tr>"
-
     def table(cells, rows):
+        """cells: (label, right_aligned, money_only) -- money columns vanish in B."""
+        head = "".join(
+            f'<th style="{TH};text-align:{"right" if right else "left"}">{e(t)}</th>'
+            for t, right, money_only in cells if hpp or not money_only)
         return (f'<table role="presentation" cellpadding="0" cellspacing="0" width="100%" '
-                f'style="{TBL}"><thead>{thead(cells)}</thead><tbody>{rows}</tbody></table>')
-
-    link = ""
-    if artifact_url:
-        link = (f'<p style="font-size:13px;line-height:1.6;color:{C["muted"]};margin:18px 0 0">'
-                f'Versi dasbor lengkap, dapat disaring per status: '
-                f'<a href="{e(artifact_url)}" style="color:{C["accent"]}">buka dasbor</a>.</p>')
+                f'style="{TBL}"><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>')
 
     return f"""<div style="background:{C['ground']};padding:24px 12px;font-family:{FONT};\
 color:{C['ink']};font-size:14px;line-height:1.5">
@@ -536,18 +554,22 @@ color:{C['ink']};font-size:14px;line-height:1.5">
     style="border-collapse:collapse;margin-top:18px;font-family:{FONT}"><tr>{kpis}</tr></table>
 
   {h2('Umur stok')}
-  {table([('Kelompok umur', False), ('Unit', True), ('Porsi', True), ('Nilai HPP', True)], aging_rows)}
+  {table([('Kelompok umur', False, False), ('Unit', True, False),
+          ('Porsi', True, False), ('Nilai HPP', True, True)], aging_rows)}
   <p style="{NOTE};margin:8px 0 0">Dihitung sejak tanggal DO sampai
     {e(id_date(m['as_of']))}, hanya unit yang belum terjual.</p>
 
   {h2('Perlu perhatian — stok di atas 90 hari')}
-  {table([('No DO', False), ('Unit', False), ('Lokasi', False), ('Umur', True), ('HPP', True)], over90)}
+  {table([('No DO', False, False), ('Unit', False, False), ('Lokasi', False, False),
+          ('Umur', True, False), ('HPP', True, True)], over90)}
 
   {h2('Stok tersedia per lokasi')}
-  {table([('Lokasi', False), ('Unit', True), ('Free', True), ('Match', True), ('Nilai HPP', True)], loc_rows)}
+  {table([('Lokasi', False, False), ('Unit', True, False), ('Free', True, False),
+          ('Match', True, False), ('Nilai HPP', True, True)], loc_rows)}
 
   {h2('Per model')}
-  {table([('Model', False), ('Unit', True), ('Free', True), ('Match', True), ('Nilai HPP', True)], model_rows)}
+  {table([('Model', False, False), ('Unit', True, False), ('Free', True, False),
+          ('Match', True, False), ('Nilai HPP', True, True)], model_rows)}
 
   {h2('Catatan kualitas data')}
   <div style="background:#fff;border:1px solid {C['line']};padding:14px 16px">
@@ -558,7 +580,6 @@ color:{C['ink']};font-size:14px;line-height:1.5">
       {m['uncounted_rows']} baris tidak berstatus sehingga tidak terhitung di mana pun.
       No DO ganda: <span style="font-family:{MONO}">{e(dup or DASH)}</span>.</p>
   </div>
-  {link}
 
   <p style="{NOTE};border-top:1px solid {C['line']};padding-top:14px;margin-top:28px">
     Disusun otomatis dari email <em>Notifikasi Stock</em> ArUnit tertanggal
@@ -570,7 +591,8 @@ color:{C['ink']};font-size:14px;line-height:1.5">
 
 if __name__ == "__main__":
     metrics = json.load(open(sys.argv[1], encoding="utf-8"))
-    url = sys.argv[2] if len(sys.argv) > 2 else None
     open("out/artifact.html", "w", encoding="utf-8").write(render_artifact(metrics))
-    open("out/email.html", "w", encoding="utf-8").write(render_email(metrics, url))
-    print("wrote out/artifact.html and out/email.html")
+    open("out/email-a.html", "w", encoding="utf-8").write(render_email(metrics, hpp=True))
+    open("out/email-b.html", "w", encoding="utf-8").write(render_email(metrics, hpp=False))
+    print("wrote out/artifact.html, out/email-a.html (with HPP), "
+          "out/email-b.html (no HPP)")

@@ -15,28 +15,39 @@ read of it. If Friday's notification is missing the run falls back to the newest
 within 4 days and labels the report with that email's own date; older than that, the run
 is a silent no-op rather than reporting stale numbers.
 
-## Distribution list
+## Distribution lists — two emails, two audiences
 
-The report currently goes to **`vwilliam@dutacendana.com` only**. This is the
-deliberate starting point: the automation sends outward-facing mail, so it
-begins with the owner alone and is widened once the output has been reviewed in
-production for a few days.
+Each week goes out as **two sends sharing one subject**, differing only in whether
+cost figures are present.
 
-The upstream ArUnit notification already goes to the full team:
+| | Email A — with HPP | Email B — no HPP |
+|---|---|---|
+| **To** | `vwilliam@dutacendana.com`<br>`stock@suzukidutacendana.com` | `it@dutacendana.com`<br>`om@suzukidutacendana.com`<br>`fineke99@gmail.com`<br>`m.rizky@smkwikrama.sch.id` |
+| **Body** | `out/email-a.html` | `out/email-b.html` |
+| **Cost figures** | stock value, HPP per bucket / branch / model, HPP per aging unit | none anywhere |
 
-```
-it@dutacendana.com
-om@suzukidutacendana.com
-vwilliam@dutacendana.com
-fineke99@gmail.com
-stock@suzukidutacendana.com
-m.rizky@smkwikrama.sch.id
-```
+Between them these are the six recipients of the upstream ArUnit notification.
+No one appears on both, and the two lists are never CC'd across.
 
-To widen the distribution, edit STEP 7 of the prompt file to name the recipients
-above and `git push`. No routine edit is required.
+**B is not A with the numbers blanked out.** The renderer removes the HPP columns
+entirely and replaces the stock-value headline tile with the sold count, so B reads as
+a complete report rather than one with holes in it. That is why B must always come
+from `render_email(metrics, hpp=False)` and never from hand-editing A — a blanked cell
+still tells the reader a figure exists and is being withheld, and a missed one leaks
+it outright. The test suite asserts B contains no `Rp` and no `HPP` at all.
 
-Note that the upstream ArUnit mail already goes to that list *daily*; this weekly report
+The two sends share a subject, so the duplicate-send guard is **per recipient**, not
+per subject — otherwise a run that sent A and failed on B would mark the week done and
+silently never deliver B.
+
+Neither email carries the Artifact URL. The recipients are dealership staff, not
+Claude users; a link none of them can open is worse than no link, and both bodies are
+complete on their own. The Artifact is the account owner's reference copy.
+
+To change either list, edit STEP 7 of the prompt file and `git push`. No routine edit
+is required.
+
+Note that the upstream ArUnit mail already goes to all six *daily*; this weekly report
 is a different thing — the Friday read of aging and capital — not a replacement for it.
 
 ## Deploying
@@ -70,7 +81,7 @@ never needs to be touched again.
 ```
 python3 tests/test_parse_stock.py                              # must PASS first
 python3 src/parse_stock.py out/source.md 2026-08-29 > out/metrics.json
-python3 src/render_dashboard.py out/metrics.json [artifact-url]
+python3 src/render_dashboard.py out/metrics.json   # -> artifact.html, email-a, email-b
 ```
 
 `out/source.md` is the `plaintextBody` of the source email, saved verbatim.
