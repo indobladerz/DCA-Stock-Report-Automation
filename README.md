@@ -1,7 +1,7 @@
 # DCA Stock Report Automation
 
 Weekly stock (vehicle inventory) dashboard for **PT. Duta Cendana Adimandiri**
-(Suzuki), sent Friday evening.
+(Suzuki), sent Friday afternoon.
 
 Every morning the upstream "ArUnit" system emails a *Notifikasi Stock* — a summary
 line and a 176-row, 21-column table of every unit on the books. Read daily, it is a
@@ -74,10 +74,11 @@ Consequences of that choice, all deliberate:
   none. The moment an attachment is reintroduced, the failure returns.
 - **No `base64Content` is ever passed to the Drive tool**, and there is no Drive
   archive step. Nothing in this pipeline needs one.
-- **The Artifact is the rich version**, published to a stable URL that updates in
-  place each week. Its URL is never emailed to anyone — the recipients are dealership
-  staff, not Claude users, and a link none of them can open is worse than no link.
-  Both email bodies are complete on their own.
+- **The Artifact is the rich version**, published to a stable URL. A scheduled run no
+  longer publishes it — see *Delivery integrity* — so it refreshes on demand rather than
+  weekly. Its URL is never emailed to anyone either way: the recipients are dealership
+  staff, not Claude users, and a link none of them can open is worse than no link. Both
+  email bodies are complete on their own.
 - **No `pip install`.** The old PDF path pulled in WeasyPrint (fragile) and then
   ReportLab. Removing the PDF removed the dependency, so a cold sandbox has nothing
   to install and nothing to fail at.
@@ -140,6 +141,33 @@ that both variants keep the same rows and the same four headline tiles. See
 [`routines/dca-stock-notification.md`](routines/dca-stock-notification.md) for the
 two recipient lists.
 
+## Delivery integrity
+
+Two controls, both added after real failures.
+
+**Every email body is content-sealed.** The renderer appends a sentinel as the last
+line — `<!-- dca-stok v1 a 2026-09-11 51c5126a98547957 -->` — carrying the variant, the
+report date, and a SHA-256 prefix of everything above it. The run must confirm the body
+it is about to send ends with exactly that line, and after sending it re-reads both
+sent copies and checks `sizeEstimate > 15000` and that the snippet starts with
+"PT. Duta Cendana Adimandiri".
+
+This exists because on 4 September 2026 a run pasted
+`<html><body> PLACEHOLDER </body></html>` into list A — the owner and finance among
+them — and followed it with a correction. The stub was 1,363 bytes against a normal
+25–31 KB, so the size check alone now catches it. `verify_sealed()` also rejects a
+truncated body and a sentinel moved between variants; the tests assert all three.
+
+**A scheduled run never calls the Artifact tool.** Two runs stalled on its permission
+prompt — about three hours on 4 September, nearly three days on 11 September — with the
+emails stuck behind it. A routine cannot be told not to ask: the prompt is raised by the
+harness before the tool runs, and no setting in the routine form, the CLI, the trigger
+API, or `.claude/settings.json` grants it. So the pipeline stops calling it. The artifact
+is the owner's reference copy and its link is never emailed, so nothing the recipients
+see depends on it; refresh it on demand from an interactive session, where a human can
+answer the prompt in one click. See
+[`routines/dca-stock-notification.md`](routines/dca-stock-notification.md).
+
 ## Layout
 
 ```
@@ -150,6 +178,8 @@ loaders/                 the ~1.5 KB prompt the trigger config actually stores
 tests/                   fixture (a real captured email) + assertions
 ```
 
-Editing a file here does not change a running routine's behaviour unless the routine
-loads its instructions from this checkout — which is exactly what the loader arranges.
-Once deployed, `git push` is the whole deployment.
+The routine clones `main`, which is where all of this lives, and loads its instructions
+from that checkout. So `git push` is the whole deployment — no routine edit, no branch
+checkout. The one thing `git push` cannot change is the routine's own permission
+config; that is a web-UI step, documented in
+[`routines/dca-stock-notification.md`](routines/dca-stock-notification.md).

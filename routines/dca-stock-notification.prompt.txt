@@ -122,30 +122,18 @@ the fix. In particular, never produce variant B by editing variant A -- the rend
 removes whole columns and swaps the value tile for the sold count, which blanking
 cells by hand would not reproduce.
 
---------------------------------------------------------------------------------
-STEP 6 — Publish the dashboard Artifact
---------------------------------------------------------------------------------
-Publish out/artifact.html with the Artifact tool.
+The command prints a SENTINEL for each body, e.g.
 
-  - Same artifact every day: pass the SAME url each run so it updates in place and
-    keeps one stable link. The current artifact URL is recorded in
-    routines/dca-stock-notification.md — read it from there, and if it is absent
-    (first run), publish fresh and write the returned URL back into that file, commit
-    and push.
-  - Before publishing to an existing artifact you must first read it
-    (action: "read" with that url), or the publish is refused.
-  - favicon: omit on updates. It stays the car icon for the life of the artifact.
-  - label: the report date, e.g. "29-agustus-2026". The artifact updates in
-    place every week, so the same link always shows the latest week.
+  <!-- dca-stok v1 a 2026-09-11 51c5126a98547957 -->
 
-The Artifact is the account owner's reference copy. Its URL is NEVER emailed to
-anyone: the recipients are dealership staff, not Claude users, and a link none of
-them can open is worse than no link. Both email bodies are complete on their own.
+It is the last line of the file and carries a hash of everything above it. Write both
+sentinels down now -- STEP 7 will not let you send without them.
 
 --------------------------------------------------------------------------------
-STEP 7 — Send the email
+STEP 6 — Send the email
 --------------------------------------------------------------------------------
-Duplicate guard first. Search sent mail for today's report:
+Duplicate guard first -- this is now the first outward-facing step in the run.
+Search sent mail for this week's report:
 
   mcp__Gmail__search_threads with query: in:sent subject:"Stok Mingguan DCA" newer_than:4d
 
@@ -154,6 +142,23 @@ subject-only check would let a run that sent A and failed on B mark the week com
 and silently never deliver B. Look at who each already-sent message actually went to,
 and send only the missing side. If both went out for this report date, end and report
 "already delivered".
+
+NEVER SEND A PLACEHOLDER. On 4 September 2026 a run sent list A a body that read
+`<html><body> PLACEHOLDER </body></html>`, then a correction two minutes later titled
+"koreksi isi email sebelumnya". Five people, including the owner and finance, got a
+broken email from an automation they are supposed to trust.
+
+So: the ONLY thing that may ever go in htmlBody is the exact, complete contents of the
+rendered file. Not a stub, not a shortened version, not a "test first then correct",
+not a hand-retyped summary. If for any reason you cannot paste the whole file, SEND
+NOTHING and report it -- a missing report is recoverable, a wrong one already in five
+inboxes is not.
+
+PRE-SEND GATE, both emails, no exceptions: the last line of the text you are about to
+pass as htmlBody must be character-for-character the sentinel STEP 5 printed for that
+variant. If the last line is anything else, you are not holding the report: stop, do
+not send, re-read the file and try again. Check this immediately before each send,
+against the body as you have actually assembled it -- not against the file on disk.
 
 TWO SENDS GO OUT, sharing one subject. They differ only in whether cost figures
 are present. Send both with mcp__Gmail__send_message:
@@ -197,11 +202,65 @@ If the send fails, retry once. If it fails again, report the failure plainly. Do
 fall back to attaching anything.
 
 --------------------------------------------------------------------------------
+STEP 6.5 — Verify what actually landed (do not skip)
+--------------------------------------------------------------------------------
+A send that returns an id only proves Gmail accepted something. Prove it accepted the
+report. After BOTH sends, re-read the sent copies:
+
+  mcp__Gmail__search_threads with query: in:sent subject:"Stok Mingguan DCA" newer_than:1d
+
+For each of the two messages, check the metadata the search already returns -- this
+costs nothing and needs no second fetch:
+
+  1. sizeEstimate is above 15000. The real bodies run 24-31 KB. The placeholder that
+     went out on 4 September was 1,363 bytes, so this single check would have caught
+     it outright.
+  2. snippet begins with "PT. Duta Cendana Adimandiri". A stub, an empty body or a
+     truncated paste all fail this.
+  3. toRecipients matches the list that message was meant for, exactly.
+
+If any message fails 1 or 2, its body is not the report. Send that variant again
+immediately, with the correct body and the subject suffixed " (koreksi isi email
+sebelumnya)", then say so plainly in STEP 8 -- never leave a broken report standing as
+the week's delivery.
+
+If a message fails 3, do not resend blindly: say which addresses got what, because a
+list-A body reaching a list-B address is a cost-data leak and needs a person, not a
+retry.
+
+--------------------------------------------------------------------------------
+STEP 7 — Do NOT publish the Artifact on a scheduled run
+--------------------------------------------------------------------------------
+Skip this step. Do not call the Artifact tool. The run is finished after STEP 6.5.
+
+This is not an oversight. The Artifact tool raises a permission prompt that a
+scheduled run cannot answer: the prompt is raised by the harness before the tool
+runs, so no instruction in this file -- however emphatic -- suppresses it, and there
+is no setting anywhere in the routine, the CLI or the API that pre-authorises it. It
+blocked the 4 September run for three hours and the 11 September run for nearly three
+days, confirmed by the account owner, who saw the prompt waiting.
+
+Nothing is lost by skipping it. The Artifact is the owner's reference copy, its link
+is never sent to anyone, and both email bodies are complete on their own. The owner
+refreshes it on demand by asking an interactive session to run the pipeline and
+publish out/artifact.html to the URL in routines/dca-stock-notification.md -- a
+session with a human in it can answer the prompt in one click.
+
+If you are NOT a scheduled run -- a person is present and has explicitly asked for a
+refreshed dashboard -- then publishing is fine: read the existing artifact first
+(action: "read" with the URL from routines/dca-stock-notification.md), publish
+out/artifact.html to that same URL so the link stays stable, omit the favicon, and
+label it with the report date.
+
+--------------------------------------------------------------------------------
 STEP 8 — Report
 --------------------------------------------------------------------------------
 Summarise in a few lines: report date, rows parsed, unsold count, HPP tied up, count
-over 90 days, any data-quality findings, the artifact URL, and the recipients of each
-of the two emails, stated separately so it is clear both went out.
+over 90 days, any data-quality findings, and the recipients of each
+of the two emails, stated separately so it is clear both went out. State the
+STEP 6.5 result for each message -- its sizeEstimate and whether the snippet check
+passed. "Sent" is not the same claim as "verified delivered intact", and only the
+second one is worth reporting.
 Do not commit anything except an artifact URL first written in STEP 6.
 
 --------------------------------------------------------------------------------
