@@ -67,39 +67,42 @@ deployed by `git push` alone. No routine edit, no branch checkout.
 The superseded routine `trig_01QUuaBJQPr3XSXUDEbDfqx3` is **disabled** — do not
 re-enable it. `trig_01UpN42Pf7LkRANbQyETQZxq` is the live one.
 
-### The permission problem, and what actually fixes it
+### The runs that hung, and what we actually know
 
-Two runs hung waiting for a permission prompt nobody was there to answer:
+Two runs took far longer than the ~12 minutes this pipeline needs:
 
-| Run | Fired | Finished | Blocked for |
+| Run | Fired | Finished | Elapsed |
 |---|---|---|---|
 | Fri 4 Sep 2026 | 10:08 | 13:10 | ~3 hours |
 | Fri 11 Sep 2026 | 09:11 | **Sun 14 Sep 02:54** | **~2 days 17 hours** |
 
-Both eventually delivered, but only once a human cleared the prompt.
+Both eventually delivered. **The cause is not established.** What is known:
 
-`.claude/settings.json` in this repository does **not** fix it, despite what an
-earlier attempt assumed. That file was on `main` from 2 September, before both hung
-runs. A repository settings file is not what gates an unattended run; the routine's
-own stored config is:
+- A manually forced run on 29 Aug 2026 *did* block on a permission prompt —
+  `pending_action: mcp__Gmail__search_threads` was observed live. That run's origin was
+  `force_run_trigger`, not a scheduled fire.
+- For the 4 and 11 Sep runs, both had already finished when they were examined, so no
+  pending action was ever seen. That they were blocked on a permission prompt is an
+  **inference from timing**, not an observation.
+- The routines documentation states that routines "run autonomously as full Claude Code
+  cloud sessions: there is no permission-mode picker and no approval prompts during a
+  run", which sits badly with the observed durations either way.
 
-```
-allowed_tools : Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch
-connectors    : Gmail, Google-Drive
-```
+`.claude/settings.json` in this repository is not the lever some earlier notes assumed.
+It was on `main` from 2 September, before both long runs, with `Artifact` and the Gmail
+tools already in its allow list. Whatever stalled those runs, that file did not prevent
+it.
 
-`Artifact` is in neither list — it is not a connector tool, so attaching Gmail does
-nothing for it. On 11 September the artifact was republished at 02:49:57 and the two
-emails went out at 02:52 and 02:54, which puts the block at the Artifact call.
+**To establish the cause**, open the run itself — a green run status only means the
+session exited without an infrastructure error, and permission denials and tool errors
+surface in the transcript rather than the status. The 11 Sep run is
+`session_01QjaYvA48jdfRp9BWtNwcf6`. From a local terminal (not a web session),
+`/schedule why did ... take three days?` reads the run log and explains, on CLI
+v2.1.227 or later.
 
-Two mitigations, both applied:
-
-1. **The Artifact publish moved to the end of the run** (STEP 7) and is explicitly
-   allowed to fail. The emails are the deliverable; a prompt at the artifact step now
-   costs nothing, because the report is already out.
-2. **The permission itself still needs granting in the web UI** — see the
-   *Granting permissions* section below. Do both: the reorder limits the damage, the
-   grant removes the prompt.
+**What was done anyway**, because it holds regardless of cause: the Artifact publish
+moved to the end of the run (STEP 7) and is explicitly allowed to fail. Whatever stalls
+there can no longer hold the emails, because by then the report is already delivered.
 
 ## Incident log
 
@@ -120,32 +123,35 @@ Fixed in three layers, because a prompt that merely asks for care is not a contr
   snippet starts with "PT. Duta Cendana Adimandiri". The placeholder was 1,363 bytes,
   so that check alone would have caught it.
 
-## Granting permissions in the web UI
+## What can and cannot be configured in the web UI
 
-Do this once, at <https://claude.ai/code/routines>. It cannot be done from a Claude
-Code session — the trigger API available there rejects the connector/permission
-fields, which is how the routine ended up prompting in the first place.
+At <https://claude.ai/code/routines>, open **DCA Weekly Stock Dashboard V2**
+(`trig_01UpN42Pf7LkRANbQyETQZxq`) and click the **pencil icon** for **Edit routine**.
 
-1. Open **DCA Weekly Stock Dashboard V2** (`trig_01UpN42Pf7LkRANbQyETQZxq`).
-   Ignore the older, disabled **DCA Weekly Stock Dashboard**.
-2. Click the **pencil icon** to open **Edit routine**.
-3. Scroll to **Connectors** at the bottom of the form. Confirm **Gmail** is present.
-   Remove **Google Drive** — this pipeline is text-only and denies every Drive tool
-   anyway, and an included connector grants unprompted access to all of its tools,
-   writes included.
-4. If the connector row exposes a tool list, restrict Gmail to the four tools the run
-   actually uses: `search_threads`, `get_thread`, `get_message`, `send_message`.
-   Leave the trash/delete tools out.
-5. Look for a tools or permissions control in the same form and make sure **Artifact**
-   is allowed. This is the one that has been blocking — it is not a connector tool, so
-   step 3 does not cover it. If the form offers no way to allow it, leave it: STEP 7 of
-   the prompt now runs the artifact publish last and lets it fail, so the emails still
-   go out on time.
-6. **Save.**
-7. Test with **Run now** on the detail page, and watch it. A green run status only
-   means the session exited without an infrastructure error — open the run and confirm
-   both emails actually went out, and check the run's duration. Anything over about
-   fifteen minutes means it is sitting on a prompt again.
+The form has five sections and no others: **name + prompt** (with a model selector),
+**repositories**, **environment**, **select a trigger**, and **connectors**. There is
+**no tools or permissions control** — do not go looking for one. Per-tool approval is
+not something a routine exposes.
+
+So the only tool-scoping lever is **Connectors**, and the one change worth making is:
+
+- **Remove Google Drive.** This pipeline is text-only and its settings file denies every
+  Drive tool; an included connector grants unprompted access to all of its tools, writes
+  included, so there is no reason to carry it.
+- **Keep Gmail.** The run reads the source notification and sends the two reports.
+
+`Artifact` is not a connector, so nothing in this form governs it. That is why STEP 7 of
+the prompt now runs the publish last and lets it fail rather than relying on a grant
+that has no UI.
+
+While you are in the edit form, the **Instructions** box should match
+[`../loaders/dca-stock-loader.txt`](../loaders/dca-stock-loader.txt). A Claude Code
+session cannot update it — this routine was created via the HTTP API, and the trigger
+API refuses prompt edits from agents on routines they did not create.
+
+After saving, use **Run now** and watch it. A green status only means the session
+exited cleanly; open the run and confirm both emails went out. A run much longer than
+about fifteen minutes is the symptom to watch for.
 
 ## Running it by hand
 

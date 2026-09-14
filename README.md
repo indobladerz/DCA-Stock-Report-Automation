@@ -157,13 +157,14 @@ them — and followed it with a correction. The stub was 1,363 bytes against a n
 25–31 KB, so the size check alone now catches it. `verify_sealed()` also rejects a
 truncated body and a sentinel moved between variants; the tests assert all three.
 
-**The Artifact publish runs last and may fail.** It is not a connector tool and is not
-in the routine's `allowed_tools`, so it can raise a permission prompt in an unattended
-run — it did on 4 September (3 hours) and 11 September (nearly 3 days). While it sat
-ahead of the sends it blocked the whole report. It now runs after both emails are
-confirmed delivered, where a prompt costs nothing: the week's report is already out.
-See [`routines/dca-stock-notification.md`](routines/dca-stock-notification.md) for the
-permission grant that removes the prompt itself.
+**The Artifact publish runs last and may fail.** Two runs stalled for hours — 4 September
+for about three, 11 September for nearly three days — with the emails stuck behind a
+publish step that ran before them. The cause was never established; see
+[`routines/dca-stock-notification.md`](routines/dca-stock-notification.md), which records
+what is actually known rather than the tidier story. The fix does not depend on knowing:
+the publish now runs after both emails are confirmed delivered, so whatever stalls there
+can no longer hold the report. The artifact is the owner's reference copy and its link is
+never sent to anyone, so losing it costs nothing.
 
 ## Layout
 
