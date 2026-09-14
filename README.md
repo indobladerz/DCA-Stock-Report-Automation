@@ -157,14 +157,15 @@ them — and followed it with a correction. The stub was 1,363 bytes against a n
 25–31 KB, so the size check alone now catches it. `verify_sealed()` also rejects a
 truncated body and a sentinel moved between variants; the tests assert all three.
 
-**The Artifact publish runs last and may fail.** Two runs stalled for hours — 4 September
-for about three, 11 September for nearly three days — with the emails stuck behind a
-publish step that ran before them. The cause was never established; see
-[`routines/dca-stock-notification.md`](routines/dca-stock-notification.md), which records
-what is actually known rather than the tidier story. The fix does not depend on knowing:
-the publish now runs after both emails are confirmed delivered, so whatever stalls there
-can no longer hold the report. The artifact is the owner's reference copy and its link is
-never sent to anyone, so losing it costs nothing.
+**A scheduled run never calls the Artifact tool.** Two runs stalled on its permission
+prompt — about three hours on 4 September, nearly three days on 11 September — with the
+emails stuck behind it. A routine cannot be told not to ask: the prompt is raised by the
+harness before the tool runs, and no setting in the routine form, the CLI, the trigger
+API, or `.claude/settings.json` grants it. So the pipeline stops calling it. The artifact
+is the owner's reference copy and its link is never emailed, so nothing the recipients
+see depends on it; refresh it on demand from an interactive session, where a human can
+answer the prompt in one click. See
+[`routines/dca-stock-notification.md`](routines/dca-stock-notification.md).
 
 ## Layout
 

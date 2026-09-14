@@ -229,45 +229,34 @@ list-A body reaching a list-B address is a cost-data leak and needs a person, no
 retry.
 
 --------------------------------------------------------------------------------
-STEP 7 — Publish the dashboard Artifact (last, and optional)
+STEP 7 — Do NOT publish the Artifact on a scheduled run
 --------------------------------------------------------------------------------
-This step runs LAST, after both emails are confirmed delivered, and it is the only
-step in this run that is allowed to fail.
+Skip this step. Do not call the Artifact tool. The run is finished after STEP 6.5.
 
-The Artifact tool is not a connector tool and is not in the routine's allowed_tools,
-so it can raise a permission prompt. It did on 4 and 11 September 2026, and because
-the publish used to come BEFORE the sends, the report sat undelivered for three hours
-and then for nearly three days while the prompt waited for a human. The emails are the
-deliverable; the Artifact is the owner's reference copy and nobody is ever sent its
-link. So it goes here, at the end, where a prompt costs nothing that matters.
+This is not an oversight. The Artifact tool raises a permission prompt that a
+scheduled run cannot answer: the prompt is raised by the harness before the tool
+runs, so no instruction in this file -- however emphatic -- suppresses it, and there
+is no setting anywhere in the routine, the CLI or the API that pre-authorises it. It
+blocked the 4 September run for three hours and the 11 September run for nearly three
+days, confirmed by the account owner, who saw the prompt waiting.
 
-If the Artifact tool is unavailable, gated, or fails for any reason: skip it, say so in
-STEP 8, and end the run successfully. Never retry it in a loop, and never let it delay
-or block an email -- by the time you reach this step the week's report is already out.
+Nothing is lost by skipping it. The Artifact is the owner's reference copy, its link
+is never sent to anyone, and both email bodies are complete on their own. The owner
+refreshes it on demand by asking an interactive session to run the pipeline and
+publish out/artifact.html to the URL in routines/dca-stock-notification.md -- a
+session with a human in it can answer the prompt in one click.
 
-Publish out/artifact.html with the Artifact tool.
-
-  - Same artifact every week: pass the SAME url each run so it updates in place and
-    keeps one stable link. The current artifact URL is recorded in
-    routines/dca-stock-notification.md — read it from there, and if it is absent
-    (first run), publish fresh and write the returned URL back into that file, commit
-    and push.
-  - Before publishing to an existing artifact you must first read it
-    (action: "read" with that url), or the publish is refused.
-  - favicon: omit on updates. It stays the car icon for the life of the artifact.
-  - label: the report date, e.g. "29-agustus-2026". The artifact updates in
-    place every week, so the same link always shows the latest week.
-
-The Artifact is the account owner's reference copy. Its URL is NEVER emailed to
-anyone: the recipients are dealership staff, not Claude users, and a link none of
-them can open is worse than no link. Both email bodies are complete on their own.
+If you are NOT a scheduled run -- a person is present and has explicitly asked for a
+refreshed dashboard -- then publishing is fine: read the existing artifact first
+(action: "read" with the URL from routines/dca-stock-notification.md), publish
+out/artifact.html to that same URL so the link stays stable, omit the favicon, and
+label it with the report date.
 
 --------------------------------------------------------------------------------
 STEP 8 — Report
 --------------------------------------------------------------------------------
 Summarise in a few lines: report date, rows parsed, unsold count, HPP tied up, count
-over 90 days, any data-quality findings, the artifact URL (or that the publish was
-skipped), and the recipients of each
+over 90 days, any data-quality findings, and the recipients of each
 of the two emails, stated separately so it is clear both went out. State the
 STEP 6.5 result for each message -- its sizeEstimate and whether the snippet check
 passed. "Sent" is not the same claim as "verified delivered intact", and only the

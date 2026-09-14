@@ -67,7 +67,7 @@ deployed by `git push` alone. No routine edit, no branch checkout.
 The superseded routine `trig_01QUuaBJQPr3XSXUDEbDfqx3` is **disabled** — do not
 re-enable it. `trig_01UpN42Pf7LkRANbQyETQZxq` is the live one.
 
-### The runs that hung, and what we actually know
+### The runs that hung — cause confirmed
 
 Two runs took far longer than the ~12 minutes this pipeline needs:
 
@@ -76,33 +76,31 @@ Two runs took far longer than the ~12 minutes this pipeline needs:
 | Fri 4 Sep 2026 | 10:08 | 13:10 | ~3 hours |
 | Fri 11 Sep 2026 | 09:11 | **Sun 14 Sep 02:54** | **~2 days 17 hours** |
 
-Both eventually delivered. **The cause is not established.** What is known:
+**Both were waiting on a permission prompt for the Artifact tool**, confirmed by the
+account owner, who saw the prompt sitting in the 11 September run.
 
-- A manually forced run on 29 Aug 2026 *did* block on a permission prompt —
-  `pending_action: mcp__Gmail__search_threads` was observed live. That run's origin was
-  `force_run_trigger`, not a scheduled fire.
-- For the 4 and 11 Sep runs, both had already finished when they were examined, so no
-  pending action was ever seen. That they were blocked on a permission prompt is an
-  **inference from timing**, not an observation.
-- The routines documentation states that routines "run autonomously as full Claude Code
-  cloud sessions: there is no permission-mode picker and no approval prompts during a
-  run", which sits badly with the observed durations either way.
+Three things follow, and all three are counter-intuitive enough to be worth writing
+down:
 
-`.claude/settings.json` in this repository is not the lever some earlier notes assumed.
-It was on `main` from 2 September, before both long runs, with `Artifact` and the Gmail
-tools already in its allow list. Whatever stalled those runs, that file did not prevent
-it.
+1. **A routine cannot be told not to ask.** The prompt is raised by the harness before
+   the tool runs; it is not the model deciding to ask. Instructions like "never ask for
+   permission, nobody is watching" — which this routine's prompt has carried from the
+   start — have no effect on it.
+2. **There is no setting that grants it.** The routine edit form has five sections
+   (name + prompt, repositories, environment, triggers, connectors) and no tools or
+   permissions control. `Artifact` is not a connector, so the Connectors section does
+   not reach it either. Nothing in the CLI or the trigger API exposes it.
+3. **`.claude/settings.json` does not do it.** That file has listed `Artifact` in
+   `permissions.allow` since 31 August and has been on `main` since 2 September —
+   before both hung runs. A repository settings file is not what gates a routine
+   session.
 
-**To establish the cause**, open the run itself — a green run status only means the
-session exited without an infrastructure error, and permission denials and tool errors
-surface in the transcript rather than the status. The 11 Sep run is
-`session_01QjaYvA48jdfRp9BWtNwcf6`. From a local terminal (not a web session),
-`/schedule why did ... take three days?` reads the run log and explains, on CLI
-v2.1.227 or later.
-
-**What was done anyway**, because it holds regardless of cause: the Artifact publish
-moved to the end of the run (STEP 7) and is explicitly allowed to fail. Whatever stalls
-there can no longer hold the emails, because by then the report is already delivered.
+So the only remedy is to not call the tool. **STEP 7 now skips the Artifact publish on
+scheduled runs entirely.** Nothing is lost: the artifact is the owner's reference copy,
+its link is never emailed, and both email bodies are complete standalone. To refresh
+the dashboard, ask an interactive session to run the pipeline and publish
+`out/artifact.html` to the URL above — a session with a human in it can answer the
+prompt in one click.
 
 ## Incident log
 
@@ -130,28 +128,27 @@ At <https://claude.ai/code/routines>, open **DCA Weekly Stock Dashboard V2**
 
 The form has five sections and no others: **name + prompt** (with a model selector),
 **repositories**, **environment**, **select a trigger**, and **connectors**. There is
-**no tools or permissions control** — do not go looking for one. Per-tool approval is
-not something a routine exposes.
+**no tools or permissions control**. Per-tool approval is not something a routine
+exposes anywhere — not here, not in `/schedule`, not in the trigger API.
 
-So the only tool-scoping lever is **Connectors**, and the one change worth making is:
+The only tool-scoping lever is **Connectors**, and one change is worth making:
 
 - **Remove Google Drive.** This pipeline is text-only and its settings file denies every
   Drive tool; an included connector grants unprompted access to all of its tools, writes
   included, so there is no reason to carry it.
 - **Keep Gmail.** The run reads the source notification and sends the two reports.
 
-`Artifact` is not a connector, so nothing in this form governs it. That is why STEP 7 of
-the prompt now runs the publish last and lets it fail rather than relying on a grant
-that has no UI.
+This can also be done with `/schedule update` from a **local** terminal. It cannot be
+done from a Claude Code web session: `/schedule` is unavailable there, and the trigger
+API refuses prompt and connector edits from agents on routines created via the HTTP API.
 
 While you are in the edit form, the **Instructions** box should match
-[`../loaders/dca-stock-loader.txt`](../loaders/dca-stock-loader.txt). A Claude Code
-session cannot update it — this routine was created via the HTTP API, and the trigger
-API refuses prompt edits from agents on routines they did not create.
+[`../loaders/dca-stock-loader.txt`](../loaders/dca-stock-loader.txt), which now tells the
+run never to call the Artifact tool.
 
-After saving, use **Run now** and watch it. A green status only means the session
-exited cleanly; open the run and confirm both emails went out. A run much longer than
-about fifteen minutes is the symptom to watch for.
+After saving, use **Run now** and watch it. A green status only means the session exited
+cleanly; open the run and confirm both emails went out. A run much longer than about
+fifteen minutes means something is sitting on a prompt again.
 
 ## Running it by hand
 
