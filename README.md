@@ -74,10 +74,11 @@ Consequences of that choice, all deliberate:
   none. The moment an attachment is reintroduced, the failure returns.
 - **No `base64Content` is ever passed to the Drive tool**, and there is no Drive
   archive step. Nothing in this pipeline needs one.
-- **The Artifact is the rich version**, published to a stable URL that updates in
-  place each week. Its URL is never emailed to anyone — the recipients are dealership
-  staff, not Claude users, and a link none of them can open is worse than no link.
-  Both email bodies are complete on their own.
+- **The Artifact is the rich version**, published to a stable URL. A scheduled run no
+  longer publishes it — see *Delivery integrity* — so it refreshes on demand rather than
+  weekly. Its URL is never emailed to anyone either way: the recipients are dealership
+  staff, not Claude users, and a link none of them can open is worse than no link. Both
+  email bodies are complete on their own.
 - **No `pip install`.** The old PDF path pulled in WeasyPrint (fragile) and then
   ReportLab. Removing the PDF removed the dependency, so a cold sandbox has nothing
   to install and nothing to fail at.
