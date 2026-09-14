@@ -133,15 +133,31 @@ sentinels down now -- STEP 7 will not let you send without them.
 STEP 6 — Send the email
 --------------------------------------------------------------------------------
 Duplicate guard first -- this is now the first outward-facing step in the run.
-Search sent mail for this week's report:
+Search sent mail:
 
-  mcp__Gmail__search_threads with query: in:sent subject:"Stok Mingguan DCA" newer_than:4d
+  mcp__Gmail__search_threads with query: in:sent subject:"Stok Mingguan DCA" newer_than:9d
 
-The check is PER RECIPIENT, not per subject. A and B share a subject, so a
-subject-only check would let a run that sent A and failed on B mark the week complete
-and silently never deliver B. Look at who each already-sent message actually went to,
-and send only the missing side. If both went out for this report date, end and report
-"already delivered".
+Then filter what comes back, in this order. Both filters are mandatory.
+
+FIRST, BY REPORT DATE. Every subject ends "per <tanggal>". Read that date out of each
+result and DISCARD every message whose date is not this run's report date. Only the
+survivors count as already-sent.
+
+This is not pedantry. The window is deliberately wider than a week, so last week's
+report is normally in the results, and a run that treats any recent "Stok Mingguan DCA"
+as its own would skip the week in silence. It nearly happened on 18 September 2026: the
+11 September report was not actually delivered until the 14th, four days before the next
+run, so it sits right inside a narrower window too. A skipped week produces no error and
+no email -- nobody finds out until someone notices the report never came.
+
+SECOND, BY RECIPIENT. Among the survivors, the check is PER RECIPIENT, not per subject.
+A and B share a subject, so a subject-only check would let a run that sent A and failed
+on B mark the week complete and silently never deliver B. Look at who each surviving
+message actually went to, and send only the missing side.
+
+If both lists are covered by surviving messages, end and report "already delivered for
+<report date>". If nothing survives the first filter, this week has not been sent at
+all -- proceed normally, however many older reports the search returned.
 
 NEVER SEND A PLACEHOLDER. On 4 September 2026 a run sent list A a body that read
 `<html><body> PLACEHOLDER </body></html>`, then a correction two minutes later titled
@@ -209,7 +225,8 @@ report. After BOTH sends, re-read the sent copies:
 
   mcp__Gmail__search_threads with query: in:sent subject:"Stok Mingguan DCA" newer_than:1d
 
-For each of the two messages, check the metadata the search already returns -- this
+Apply the same report-date filter as STEP 6 -- you are verifying the two messages YOU
+just sent, not whatever else is in the window. For each of those two messages, check the metadata the search already returns -- this
 costs nothing and needs no second fetch:
 
   1. sizeEstimate is above 15000. The real bodies run 24-31 KB. The placeholder that
