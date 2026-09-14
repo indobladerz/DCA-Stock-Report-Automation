@@ -16,8 +16,10 @@ Neither renderer produces or touches a binary. See README, "Why there is no PDF"
 
 from __future__ import annotations
 
+import hashlib
 import html
 import json
+import re
 import sys
 
 C = {
@@ -442,6 +444,42 @@ DASH = "\u2014"      # em dash; kept out of f-string expressions (no backslashes
 MIDDOT = "\u00b7"
 
 
+SENTINEL_RE = re.compile(r"<!-- dca-stok v1 ([ab]) (\d{4}-\d{2}-\d{2}) ([0-9a-f]{16}) -->\s*$")
+
+
+def seal(body: str, variant: str, as_of: str) -> str:
+    """Append a content-sealed sentinel to an email body.
+
+    A run has to paste the body into a tool call by hand, and on 4 Sep 2026 one
+    pasted `<body> PLACEHOLDER </body>` to list A instead of the rendered report.
+    Nothing caught it until a human read the email. The sentinel makes "is this
+    really the rendered body" a mechanical check rather than a judgement call:
+    it carries the variant, the report date, and a hash of everything above it,
+    so a stub, a truncation or a stale file all fail to match.
+    """
+    digest = hashlib.sha256(body.encode()).hexdigest()[:16]
+    return f"{body}\n<!-- dca-stok v1 {variant} {as_of} {digest} -->"
+
+
+def read_sentinel(text: str):
+    """(variant, as_of, digest) for a sealed body, or None if absent/trailing junk."""
+    m = SENTINEL_RE.search(text)
+    return m.groups() if m else None
+
+
+def verify_sealed(text: str) -> tuple[bool, str]:
+    """Check a body still hashes to the digest its own sentinel claims."""
+    found = read_sentinel(text)
+    if not found:
+        return False, "no sentinel: this is not a rendered email body"
+    variant, as_of, digest = found
+    body = SENTINEL_RE.sub("", text).rstrip("\n")
+    actual = hashlib.sha256(body.encode()).hexdigest()[:16]
+    if actual != digest:
+        return False, f"content changed since render: sentinel {digest}, actual {actual}"
+    return True, f"variant {variant}, {as_of}, {digest}"
+
+
 def render_email(m: dict, hpp: bool = True) -> str:
     """Render the weekly email body.
 
@@ -539,7 +577,7 @@ def render_email(m: dict, hpp: bool = True) -> str:
                 f'{WHITE} style="{TBL}"><thead><tr>{head}</tr></thead>'
                 f'<tbody>{rows}</tbody></table>')
 
-    return f"""<table role="presentation" cellpadding="0" cellspacing="0" width="100%" \
+    body = f"""<table role="presentation" cellpadding="0" cellspacing="0" width="100%" \
 bgcolor="{C['ground']}" style="background:{C['ground']};border-collapse:collapse"><tr>\
 <td style="padding:24px 12px;font-family:{FONT};color:{C['ink']};font-size:14px;line-height:1.5">
 <div style="max-width:820px;margin:0 auto">
@@ -592,12 +630,24 @@ bgcolor="{C['ground']}" style="background:{C['ground']};border-collapse:collapse
     Daftar unit lengkap tetap tersedia di email ArUnit asli.</p>
 
 </div></td></tr></table>"""
+    return seal(body, "a" if hpp else "b", m["as_of"])
 
 
 if __name__ == "__main__":
     metrics = json.load(open(sys.argv[1], encoding="utf-8"))
     open("out/artifact.html", "w", encoding="utf-8").write(render_artifact(metrics))
-    open("out/email-a.html", "w", encoding="utf-8").write(render_email(metrics, hpp=True))
-    open("out/email-b.html", "w", encoding="utf-8").write(render_email(metrics, hpp=False))
-    print("wrote out/artifact.html, out/email-a.html (with HPP), "
-          "out/email-b.html (no HPP)")
+    outs = {"out/email-a.html": render_email(metrics, hpp=True),
+            "out/email-b.html": render_email(metrics, hpp=False)}
+    for path, text in outs.items():
+        open(path, "w", encoding="utf-8").write(text)
+
+    print("wrote out/artifact.html")
+    print()
+    print("Paste each body VERBATIM. The last line of what you paste must be exactly")
+    print("the sentinel shown here -- if it is not, you are not sending the report.")
+    print()
+    for path, text in outs.items():
+        ok, detail = verify_sealed(text)
+        variant = "WITH HPP   " if path.endswith("a.html") else "NO HPP     "
+        print(f"  {path}  {variant}{len(text.encode()):>6} B  [{'ok' if ok else 'BROKEN'}] {detail}")
+        print(f"      last line: {text.splitlines()[-1]}")

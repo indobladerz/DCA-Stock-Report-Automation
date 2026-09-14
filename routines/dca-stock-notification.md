@@ -3,14 +3,15 @@
 | | |
 |---|---|
 | **Entity** | PT. Duta Cendana Adimandiri (Suzuki) |
-| **Trigger ID** | `trig_01QUuaBJQPr3XSXUDEbDfqx3` |
-| **Schedule** | `0 10 * * 5` (UTC) — **Friday 17:00 WIB** |
+| **Trigger ID** | `trig_01UpN42Pf7LkRANbQyETQZxq` ("DCA Weekly Stock Dashboard V2") |
+| **Schedule** | `0 9 * * 5` (UTC) — **Friday 16:00 WIB** |
 | **Source** | Gmail: subject `Notifikasi Stock`, from `stockdcasystem@gmail.com` (previously `ar.dutacendana@gmail.com`), sent ~09:00 WIB daily |
 | **Prompt** | [`dca-stock-notification.prompt.txt`](dca-stock-notification.prompt.txt) |
 | **Loader** | [`../loaders/dca-stock-loader.txt`](../loaders/dca-stock-loader.txt) |
+| **Branch** | everything runs from `main`; the routine clones the default branch |
 | **Artifact URL** | <https://claude.ai/code/artifact/e17b5d29-f665-44fa-95f6-10d7a6b7d586> |
 
-The upstream ArUnit notification arrives every morning; this report is the Friday-evening
+The upstream ArUnit notification arrives every morning; this report is the Friday-afternoon
 read of it. If Friday's notification is missing the run falls back to the newest one
 within 4 days and labels the report with that email's own date; older than that, the run
 is a silent no-op rather than reporting stale numbers.
@@ -60,32 +61,91 @@ is a different thing — the Friday read of aging and capital — not a replacem
 
 ## Deploying
 
-The routine is live: `trig_01QUuaBJQPr3XSXUDEbDfqx3`, first fire **Fri 4 Sep 2026
-10:05 UTC**. Verified attached:
+The pipeline lives on `main`, which is the branch the routine clones, so a change is
+deployed by `git push` alone. No routine edit, no branch checkout.
 
-- **Gmail connector** — and only Gmail. The other four connectors on the account
-  (Drive, Calendar, Canva, Claude Code Remote) are deliberately absent: an included
-  connector grants unprompted access to all of its tools, writes included, and this
-  routine reads one mailbox and sends two emails.
-- **Repository** `indobladerz/DCA-Stock-Report-Automation` as a source.
+The superseded routine `trig_01QUuaBJQPr3XSXUDEbDfqx3` is **disabled** — do not
+re-enable it. `trig_01UpN42Pf7LkRANbQyETQZxq` is the live one.
 
-### One caveat: the default branch
+### The permission problem, and what actually fixes it
 
-A routine clones the repository's **default branch**. While this work sits on
-`claude/dca-stock-notification-dashboard-2kqr8m` and not on `main`, the loader has to
-check the branch out itself — STEP A.2 of [`../loaders/dca-stock-loader.txt`](../loaders/dca-stock-loader.txt)
-does exactly that, and the live routine prompt carries the same text.
+Two runs hung waiting for a permission prompt nobody was there to answer:
 
-That is a working arrangement, not a good end state. **Merging the branch to `main`
-removes the step entirely** and makes the checkout the routine already has correct on
-its own. Until then, renaming or deleting the branch breaks the routine silently.
+| Run | Fired | Finished | Blocked for |
+|---|---|---|---|
+| Fri 4 Sep 2026 | 10:08 | 13:10 | ~3 hours |
+| Fri 11 Sep 2026 | 09:11 | **Sun 14 Sep 02:54** | **~2 days 17 hours** |
 
-### Testing without waiting for Friday
+Both eventually delivered, but only once a human cleared the prompt.
 
-Open the routine at <https://claude.ai/code/routines> and click **Run now** on its
-detail page. Each run appears as a normal session, so the transcript shows exactly
-what it did. Note that a green run status only means the session exited without an
-infrastructure error — open the run to confirm both emails actually went out.
+`.claude/settings.json` in this repository does **not** fix it, despite what an
+earlier attempt assumed. That file was on `main` from 2 September, before both hung
+runs. A repository settings file is not what gates an unattended run; the routine's
+own stored config is:
+
+```
+allowed_tools : Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch
+connectors    : Gmail, Google-Drive
+```
+
+`Artifact` is in neither list — it is not a connector tool, so attaching Gmail does
+nothing for it. On 11 September the artifact was republished at 02:49:57 and the two
+emails went out at 02:52 and 02:54, which puts the block at the Artifact call.
+
+Two mitigations, both applied:
+
+1. **The Artifact publish moved to the end of the run** (STEP 7) and is explicitly
+   allowed to fail. The emails are the deliverable; a prompt at the artifact step now
+   costs nothing, because the report is already out.
+2. **The permission itself still needs granting in the web UI** — see the
+   *Granting permissions* section below. Do both: the reorder limits the damage, the
+   grant removes the prompt.
+
+## Incident log
+
+**4 Sep 2026 — placeholder body sent to list A.** At 13:06 the five list-A recipients,
+owner and finance included, received a body reading
+`<html><body> PLACEHOLDER </body></html>`, followed at 13:08 by a correction subject-lined
+"(koreksi isi email sebelumnya)". The run pasted a stub instead of the rendered file
+and nothing checked it.
+
+Fixed in three layers, because a prompt that merely asks for care is not a control:
+
+- The renderer now **seals each body** with a sentinel — `<!-- dca-stok v1 a
+  2026-09-11 51c5126a… -->` — carrying the variant, report date and a hash of
+  everything above it. It is the last line of the file.
+- STEP 6 will not send unless the last line of the assembled body is exactly that
+  sentinel, and forbids stubs, shortened bodies and "send then correct" outright.
+- STEP 6.5 re-reads both sent copies and checks `sizeEstimate > 15000` and that the
+  snippet starts with "PT. Duta Cendana Adimandiri". The placeholder was 1,363 bytes,
+  so that check alone would have caught it.
+
+## Granting permissions in the web UI
+
+Do this once, at <https://claude.ai/code/routines>. It cannot be done from a Claude
+Code session — the trigger API available there rejects the connector/permission
+fields, which is how the routine ended up prompting in the first place.
+
+1. Open **DCA Weekly Stock Dashboard V2** (`trig_01UpN42Pf7LkRANbQyETQZxq`).
+   Ignore the older, disabled **DCA Weekly Stock Dashboard**.
+2. Click the **pencil icon** to open **Edit routine**.
+3. Scroll to **Connectors** at the bottom of the form. Confirm **Gmail** is present.
+   Remove **Google Drive** — this pipeline is text-only and denies every Drive tool
+   anyway, and an included connector grants unprompted access to all of its tools,
+   writes included.
+4. If the connector row exposes a tool list, restrict Gmail to the four tools the run
+   actually uses: `search_threads`, `get_thread`, `get_message`, `send_message`.
+   Leave the trash/delete tools out.
+5. Look for a tools or permissions control in the same form and make sure **Artifact**
+   is allowed. This is the one that has been blocking — it is not a connector tool, so
+   step 3 does not cover it. If the form offers no way to allow it, leave it: STEP 7 of
+   the prompt now runs the artifact publish last and lets it fail, so the emails still
+   go out on time.
+6. **Save.**
+7. Test with **Run now** on the detail page, and watch it. A green run status only
+   means the session exited without an infrastructure error — open the run and confirm
+   both emails actually went out, and check the run's duration. Anything over about
+   fifteen minutes means it is sitting on a prompt again.
 
 ## Running it by hand
 

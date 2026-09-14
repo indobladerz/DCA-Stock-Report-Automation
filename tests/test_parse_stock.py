@@ -4,7 +4,8 @@ from datetime import date
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 import parse_stock as P                                          # noqa: E402
-from render_dashboard import render_artifact, render_email, rp, rp_short  # noqa: E402
+from render_dashboard import (render_artifact, render_email, rp, rp_short,  # noqa: E402
+                              read_sentinel, verify_sealed, seal)
 
 FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "notifikasi-stock-2026-08-29.md"
 AS_OF = date(2026, 8, 29)
@@ -124,6 +125,27 @@ for name, mail in (("A", mail_a), ("B", mail_b)):
     check_true(f"email {name} gives every white surface a bgcolor",
                mail.count('bgcolor="#ffffff"') >= 5,
                f'{mail.count(chr(34)) and mail.count("bgcolor=") } bgcolor attrs')
+
+# Every body is content-sealed, so a placeholder or truncated paste is detectable.
+for name, mail, variant in (("A", mail_a, "a"), ("B", mail_b, "b")):
+    ok, detail = verify_sealed(mail)
+    check_true(f"email {name} is sealed and intact", ok, detail)
+    found = read_sentinel(mail)
+    check_true(f"email {name} sentinel names its variant", found and found[0] == variant)
+    check(f"email {name} sentinel carries the report date", found[1], m["as_of"])
+    check_true(f"email {name} sentinel is the last line",
+               mail.splitlines()[-1].startswith("<!-- dca-stok v1 "))
+
+# The seal must actually catch the failures it exists for.
+placeholder = "<!DOCTYPE html><html><body style=\"margin:0;padding:0\"> PLACEHOLDER </body></html>"
+check_true("a placeholder body has no sentinel", not verify_sealed(placeholder)[0])
+check_true("a truncated body fails its own hash",
+           not verify_sealed(mail_a[:len(mail_a) // 2] + mail_a.splitlines()[-1])[0])
+check_true("swapping one variant's sentinel onto the other is caught",
+           not verify_sealed(SENTINEL_SWAP := (
+               mail_b.rsplit("\n", 1)[0] + "\n" + mail_a.splitlines()[-1]))[0])
+# ...and must not fire on a genuinely good body.
+check_true("a freshly sealed body verifies", verify_sealed(seal("<p>x</p>", "a", "2026-01-01"))[0])
 
 # Row counts must match between variants -- B drops columns, never rows.
 check("both variants list the same over-90 units",

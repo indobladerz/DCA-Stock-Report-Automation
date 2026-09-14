@@ -1,38 +1,30 @@
-You are running as an unattended scheduled task for Vincent William. This is a fresh
-session with no memory of any prior conversation. Do not ask the user any questions;
-make reasonable decisions and proceed.
+You are running UNATTENDED on a schedule for Vincent William. Nobody is watching.
+This is a fresh session with no memory of any prior conversation. Never ask for
+permission, never ask a clarifying question, never stop to confirm — decide and
+proceed.
 
 Your full operating instructions are NOT in this prompt — they live in the git
 repository that has been cloned into this sandbox, so they can be reviewed and
 version-controlled rather than pasted into a routine config.
 
 === STEP A: Load your instructions ===
-1. Locate the checkout: run `ls`, then
-   `find . -name 'dca-stock-notification.prompt.txt' -maxdepth 4`.
+1. Run `ls`. The pipeline lives on `main`, the default branch of
+   github.com/indobladerz/DCA-Stock-Report-Automation, so the clone already has
+   everything — you do NOT need to fetch or check out any branch. You should see
+   `routines/`, `src/` and `loaders/`.
 
-2. If that finds nothing, you are on the default branch and the work has not been
-   merged yet. The routine clones the default branch only, so check the feature
-   branch out before giving up — from inside the repository directory:
-
-     git fetch origin claude/dca-stock-notification-dashboard-2kqr8m
-     git checkout claude/dca-stock-notification-dashboard-2kqr8m
-
-   then run the `find` again. Once the branch is merged to main this step becomes a
-   no-op and the file is simply there.
-
-3. Read `routines/dca-stock-notification.prompt.txt` IN FULL — it is about 10 KB, a
+2. Read `routines/dca-stock-notification.prompt.txt` IN FULL — it is about 12 KB, a
    single `Read` page. Also read `README.md`, in particular the section "Why there is
    no PDF", and `routines/dca-stock-notification.md` for the artifact URL and the two
    recipient lists.
 
-4. Follow the prompt file exactly, from its STEP 0 through its STEP 8.
+3. Follow the prompt file exactly, from its STEP 0 through its STEP 8.
 
-=== STEP B: If the instructions are still missing ===
-If the repository was not cloned, or the file is absent on both the default branch and
-the feature branch, STOP. Send no email, publish no artifact, modify no schedules. A
-run that cannot read its own instructions must be a silent no-op — never improvise a
-stock report from memory, and never send a partial or reconstructed one. Ending
-quietly is the correct outcome here.
+=== STEP B: If the instructions are missing ===
+If the repository was not cloned, or the file does not exist, STOP. Send no email,
+publish no artifact, modify no schedules. A run that cannot read its own instructions
+must be a silent no-op — never improvise a stock report from memory, and never send a
+partial or reconstructed one. Ending quietly is the correct outcome here.
 
 === STEP C: The constraint that broke the earlier design ===
 This pipeline moves text only. Never render a PDF, never pass an `attachments` array
@@ -43,6 +35,45 @@ design has been broken — stop and report rather than working around it.
 === STEP D: Two emails go out, not one ===
 The weekly report is sent as TWO emails sharing one subject: list A carries the HPP
 cost figures, list B carries none. The recipient lists and the reason for the split
-are in the prompt file's STEP 7. Sending A's body to B's recipients is the one
-mistake here that cannot be taken back — verify B's body contains no "Rp" and no
-"HPP" before sending it.
+are in the prompt file's STEP 6. Sending A's body to B's recipients is the one mistake
+here that cannot be taken back — verify B's body contains no "Rp" and no "HPP" before
+sending it.
+
+=== STEP E: Never send a placeholder ===
+The only thing that may go in htmlBody is the exact, complete contents of the rendered
+file. Not a stub, not a shortened version, not "send a test then correct it". Each body
+ends with a sentinel line the render step prints, like
+
+    <!-- dca-stok v1 a 2026-09-11 51c5126a98547957 -->
+
+If the last line of what you are about to send is not that exact sentinel, you are not
+holding the report: stop and re-read the file. On 4 September 2026 a run sent list A a
+body reading "PLACEHOLDER" and had to follow it with a correction two minutes later. If
+you cannot paste the whole file, send nothing and say so.
+
+=== STEP F: Send the report before publishing anything ===
+The emails are the deliverable. The Artifact publish is the owner's reference copy and
+its link is never sent to anyone, so it runs LAST (STEP 7) and is allowed to fail. It
+has twice raised a permission prompt nobody was there to answer — three hours on
+4 September, nearly three days on 11 September — and because it used to run before the
+sends, it held the entire report hostage both times. Never reorder it back in front of
+the emails, and never retry it in a loop.
+
+=== STEP G: Permissions ===
+`.claude/settings.json` in the repository lists the tools this run needs and denies
+every Google Drive tool, which is STEP C enforced rather than merely requested. Be
+aware that this file has NOT reliably suppressed prompts in past runs — the routine's
+own stored config is what gates an unattended session. If a tool call is gated, treat
+it as a configuration fault: never work around it by reconstructing a figure or sending
+a partial report, and name the gated tool at the end of the run. Do not edit or weaken
+that settings file, and do not create, modify or delete any scheduled task from inside
+this run.
+
+=== STEP H: Never launch subagents or task tools ===
+This run is a single inline session. Never call the Agent tool (also shown as "Task" or
+"Launch agent"), never call TaskCreate, TaskUpdate, TaskList, TaskGet, TaskOutput or
+TaskStop, never call Workflow, and never start a Bash command with run_in_background.
+Each of those raises a permission prompt in a scheduled session, nobody is there to
+answer it, and the run hangs for hours. Do every step yourself, in order, in this one
+conversation, and keep track of progress in your own reasoning rather than with a task
+tool.

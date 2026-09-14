@@ -1,7 +1,7 @@
 # DCA Stock Report Automation
 
 Weekly stock (vehicle inventory) dashboard for **PT. Duta Cendana Adimandiri**
-(Suzuki), sent Friday evening.
+(Suzuki), sent Friday afternoon.
 
 Every morning the upstream "ArUnit" system emails a *Notifikasi Stock* — a summary
 line and a 176-row, 21-column table of every unit on the books. Read daily, it is a
@@ -140,6 +140,31 @@ that both variants keep the same rows and the same four headline tiles. See
 [`routines/dca-stock-notification.md`](routines/dca-stock-notification.md) for the
 two recipient lists.
 
+## Delivery integrity
+
+Two controls, both added after real failures.
+
+**Every email body is content-sealed.** The renderer appends a sentinel as the last
+line — `<!-- dca-stok v1 a 2026-09-11 51c5126a98547957 -->` — carrying the variant, the
+report date, and a SHA-256 prefix of everything above it. The run must confirm the body
+it is about to send ends with exactly that line, and after sending it re-reads both
+sent copies and checks `sizeEstimate > 15000` and that the snippet starts with
+"PT. Duta Cendana Adimandiri".
+
+This exists because on 4 September 2026 a run pasted
+`<html><body> PLACEHOLDER </body></html>` into list A — the owner and finance among
+them — and followed it with a correction. The stub was 1,363 bytes against a normal
+25–31 KB, so the size check alone now catches it. `verify_sealed()` also rejects a
+truncated body and a sentinel moved between variants; the tests assert all three.
+
+**The Artifact publish runs last and may fail.** It is not a connector tool and is not
+in the routine's `allowed_tools`, so it can raise a permission prompt in an unattended
+run — it did on 4 September (3 hours) and 11 September (nearly 3 days). While it sat
+ahead of the sends it blocked the whole report. It now runs after both emails are
+confirmed delivered, where a prompt costs nothing: the week's report is already out.
+See [`routines/dca-stock-notification.md`](routines/dca-stock-notification.md) for the
+permission grant that removes the prompt itself.
+
 ## Layout
 
 ```
@@ -150,6 +175,8 @@ loaders/                 the ~1.5 KB prompt the trigger config actually stores
 tests/                   fixture (a real captured email) + assertions
 ```
 
-Editing a file here does not change a running routine's behaviour unless the routine
-loads its instructions from this checkout — which is exactly what the loader arranges.
-Once deployed, `git push` is the whole deployment.
+The routine clones `main`, which is where all of this lives, and loads its instructions
+from that checkout. So `git push` is the whole deployment — no routine edit, no branch
+checkout. The one thing `git push` cannot change is the routine's own permission
+config; that is a web-UI step, documented in
+[`routines/dca-stock-notification.md`](routines/dca-stock-notification.md).
