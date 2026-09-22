@@ -565,8 +565,22 @@ def render_email(m: dict, hpp: bool = True) -> str:
     dup = ", ".join(dq["duplicate_do"])
 
     def h2(t):
-        return (f'<div style="font-size:11px;font-weight:600;letter-spacing:.12em;'
-                f'text-transform:uppercase;color:{C["muted"]};padding:26px 0 8px">{e(t)}</div>')
+        """A section heading that survives a dark-mode mail client.
+
+        Bare muted text on no surface of its own is what dark mode ruins: a
+        client that re-colours text it believes sits on a light page darkens it,
+        and the heading then vanishes against the dark page it substituted. The
+        white table surfaces below already carry both `bgcolor` and an inline
+        background for exactly this reason (see WHITE) -- these headings sat
+        outside all of them, so they got no such protection. Give each one its
+        own band, with the attribute as well as the declaration.
+        """
+        return (f'<table role="presentation" cellpadding="0" cellspacing="0" width="100%" '
+                f'style="margin:24px 0 8px"><tr>'
+                f'<td bgcolor="{C["accent"]}" style="background:{C["accent"]};'
+                f'padding:8px 12px;border-radius:5px;font-size:11px;font-weight:700;'
+                f'letter-spacing:.12em;text-transform:uppercase;color:#ffffff">'
+                f'{e(t)}</td></tr></table>')
 
     def table(cells, rows):
         """cells: (label, right_aligned, money_only) -- money columns vanish in B."""
