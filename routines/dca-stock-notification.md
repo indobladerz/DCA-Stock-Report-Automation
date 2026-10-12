@@ -104,6 +104,25 @@ prompt in one click.
 
 ## Incident log
 
+**23 Sep – 12 Oct 2026 — upstream stopped, and the silence was invisible.** The ArUnit
+*Notifikasi Stock* email stopped arriving after 23 September 2026 at 02:01 WIB. Nothing
+since, in the inbox, spam or trash.
+
+The pipeline behaved correctly throughout. 18 September ran clean and delivered both
+emails; 25 September delivered on 23 September's data, two days old and inside the
+4-day window, exactly as STEP 2 allows. The 2 and 9 October runs found nothing within
+4 days and ended as silent no-ops. The 9 October run reached `SESSION_STATUS_IDLE` in
+2m22s with no pending action — a clean exit, not a hang.
+
+The defect was not in the run, it was in the design: **a stopped upstream and a quiet
+week produced the same output — nothing.** Three weeks passed before anyone noticed. A
+failure nobody can see is worse than a loud one.
+
+STEP 2 now emails `vwilliam@dutacendana.com` alone, once a week at most, when no source
+has arrived in 4 days, naming the last-seen date. The distribution lists never see it.
+The underlying fault is upstream and has to be chased with whoever runs ArUnit — this
+pipeline can only report that its input has gone away.
+
 **4 Sep 2026 — placeholder body sent to list A.** At 13:06 the five list-A recipients,
 owner and finance included, received a body reading
 `<html><body> PLACEHOLDER </body></html>`, followed at 13:08 by a correction subject-lined
