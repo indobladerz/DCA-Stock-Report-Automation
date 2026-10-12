@@ -105,7 +105,7 @@ prompt in one click.
 ## Incident log
 
 **23 Sep – 12 Oct 2026 — upstream stopped, and the silence was invisible.** The ArUnit
-*Notifikasi Stock* email stopped arriving after 23 September 2026 at 02:01 WIB. Nothing
+*Notifikasi Stock* email stopped arriving after 23 September 2026 at 09:01 WIB (02:01 UTC). Nothing
 since, in the inbox, spam or trash.
 
 The pipeline behaved correctly throughout. 18 September ran clean and delivered both
