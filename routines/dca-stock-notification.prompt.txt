@@ -71,11 +71,46 @@ accept the newest notification from the last 4 days and label it honestly.
   - Newest notification is 0-4 days old  -> proceed. The report is titled "per
     <that email's date>", never "per today". If it is not from today, say so in your
     STEP 8 summary.
-  - Newest notification is older than 4 days, or there is none -> SILENT NO-OP.
-    Send no email, publish nothing, report "no recent source email" and end.
+
+  - Newest notification is older than 4 days, or there is none -> DO NOT send the
+    report to anyone, and do not publish anything. Instead, raise the alarm, once,
+    as described below. Then end.
 
 Never substitute today's date for the source email's date, and never carry numbers
 forward from a previous week.
+
+### Why a missing source is not a silent no-op any more
+
+This step used to end silently when the source was stale, on the reasoning that an
+occasional skipped day is not an incident. It isn't — but a *stopped* upstream is, and
+the two were indistinguishable from outside. The ArUnit notification stopped on
+23 September 2026 and nothing was sent after that; the 2 and 9 October runs both ended
+quietly and correctly, and nobody found out until the owner noticed three weeks later
+that no report had arrived. A failure nobody can see is worse than a loud one.
+
+So: when the source is missing, email **vwilliam@dutacendana.com and nobody else**:
+
+  subject:   [PERIKSA] Stok Mingguan DCA — tidak ada data sumber
+  body:      plain text, a few lines. State that no "Notifikasi Stock" email has
+             arrived within the last 4 days, the date and time of the most recent one
+             you could find (or that none exists in the last 30 days), how many days
+             ago that was, and that no weekly report was sent as a result. Say plainly
+             that this looks like the upstream ArUnit system having stopped, and that
+             it needs checking on that side — this pipeline cannot fix it.
+  htmlBody:  omit. This is a plain operational notice, not a report.
+
+Do NOT send this to the distribution lists. They are expecting a stock report, not a
+pipeline diagnostic, and a weekly "something is broken" email to the whole dealership
+is its own problem.
+
+**Send it at most once a week.** Before sending, search:
+
+  mcp__Gmail__search_threads with
+    query: in:sent subject:"[PERIKSA] Stok Mingguan DCA" newer_than:6d
+
+If anything comes back, the owner has already been told this week. Do not send a
+second one — end quietly and say so in STEP 8. The alarm exists to break a silence
+once, not to nag every Friday until the upstream is fixed.
 
 --------------------------------------------------------------------------------
 STEP 3 — Parse
@@ -272,7 +307,12 @@ label it with the report date.
 --------------------------------------------------------------------------------
 STEP 8 — Report
 --------------------------------------------------------------------------------
-Summarise in a few lines: report date, rows parsed, unsold count, HPP tied up, count
+If STEP 2 found no usable source, the summary is just that: no source within 4 days,
+the date of the most recent one, and whether the [PERIKSA] notice was sent or
+suppressed as already-sent this week. Nothing below applies.
+
+Otherwise summarise in a few lines: report date, rows parsed, unsold count, HPP tied
+up, count
 over 90 days, any data-quality findings, and the recipients of each
 of the two emails, stated separately so it is clear both went out. State the
 STEP 6.5 result for each message -- its sizeEstimate and whether the snippet check
