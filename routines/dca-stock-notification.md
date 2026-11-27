@@ -23,7 +23,7 @@ cost figures are present.
 
 | | Email A — with HPP | Email B — no HPP |
 |---|---|---|
-| **To** | `vwilliam@dutacendana.com`<br>`stock@suzukidutacendana.com`<br>`fineke99@gmail.com`<br>`om@suzukidutacendana.com`<br>`finance@suzukidutacendana.com` | `it@dutacendana.com`<br>`all.bm@suzukidutacendana.com`<br>`m.rizky@smkwikrama.sch.id` |
+| **To** | `vwilliam@dutacendana.com`<br>`stock@suzukidutacendana.com`<br>`fineke99@gmail.com`<br>`om@suzukidutacendana.com`<br>`finance@suzukidutacendana.com` | `it@dutacendana.com`<br>`all.bm@suzukidutacendana.com`<br>`mrizky@smkwikrama.sch.id` |
 | **Body** | `out/email-a.html` | `out/email-b.html` |
 | **Cost figures** | stock value, HPP per bucket / branch / model, HPP per aging unit | none anywhere |
 
@@ -103,6 +103,26 @@ the dashboard, ask an interactive session to run the pipeline and publish
 prompt in one click.
 
 ## Incident log
+
+**27 Nov 2026 — list-B address bounced; upstream had also resumed.** Two things happened
+on this run.
+
+First, the ArUnit *Notifikasi Stock* email is arriving again. The newest one was
+25 November 2026 at 02:01 UTC, two days old and inside the STEP 2 window, so the week
+reported normally as "per 25 November 2026". The outage logged below ran 23 September to
+some point before 25 November; nobody recorded when it was fixed.
+
+Second, `m.rizky@smkwikrama.sch.id` — list B as this file and the prompt file both spelt
+it — **bounced with a 550 "address not found"**. The other two list-B recipients and all
+five of list A received the report; both bodies passed the STEP 6.5 size and snippet
+checks. The correct address has no dot: `mrizky@smkwikrama.sch.id`, which is the form the
+18 November run used and which did not bounce. Both files are corrected here.
+
+Worth noting for anyone editing the lists: Gmail does **not** normalise dots away on these
+custom domains the way it does on `@gmail.com`. `all.bm@suzukidutacendana.com` is delivering
+and is left as it is, but a dot added or dropped in a non-Gmail address is a real change of
+address, and a bounce is the only thing that tells you.
+
 
 **23 Sep – 12 Oct 2026 — upstream stopped, and the silence was invisible.** The ArUnit
 *Notifikasi Stock* email stopped arriving after 23 September 2026 at 09:01 WIB (02:01 UTC). Nothing

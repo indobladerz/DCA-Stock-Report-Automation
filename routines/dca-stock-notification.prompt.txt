@@ -225,7 +225,7 @@ are present. Send both with mcp__Gmail__send_message:
 
   --- Email B: without HPP ---
   to:        it@dutacendana.com, all.bm@suzukidutacendana.com,
-             m.rizky@smkwikrama.sch.id
+             mrizky@smkwikrama.sch.id
   subject:   the SAME subject as A
   htmlBody:  the full contents of out/email-b.html
   body:      short plain-text fallback with NO rupiah figure in it
